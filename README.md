@@ -59,7 +59,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 ### Phase 2 – Data pipeline
 - [x] src/data/projection.js
 - [x] src/data/overpass.js
-- [ ] src/data/parser.js
+- [x] src/data/parser.js
 
 ### Phase 3 – Primary city (boxes + ribbons)
 - [ ] src/world/scene.js
