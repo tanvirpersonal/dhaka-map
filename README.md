@@ -128,7 +128,7 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [x] src/world/sidewalks.js  (curb + sidewalk ribbons along roads)
 - [x] src/world/props.js  (instanced street lamps + trees)
 - [x] src/export/gameData.js  (colliders, road graph, spawn points as JSON for the game)
-- [ ] Wire sidewalks/props into cityGenerator.js, export button
+- [x] Wire sidewalks/props into cityGenerator.js (+ footpath texture in assetReplacer.js), Export Game Data button
 
 ### Phase 9 – Preview tools
 - [ ] src/world/timeOfDay.js  (sun, sky, fog, window glow at night)

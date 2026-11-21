@@ -172,6 +172,21 @@ bus.on('export:glb', async () => {
   }
 });
 
+bus.on('export:gamedata', async () => {
+  try {
+    showLoader('Building game data…');
+    await tick();
+    const { exportGameData } = await lazy('./export/gameData.js');
+    const r = await exportGameData();
+    setStatus(`Game data saved: ${r.buildings} colliders, ${r.edges} road segments, ${r.vehicleSpawns} vehicle + ${r.pedestrianSpawns} pedestrian spawns (${r.drivingSide}-hand traffic).`);
+  } catch (e) {
+    console.error(e);
+    setStatus(`Game data export failed: ${e.message}`);
+  } finally {
+    hideLoader();
+  }
+});
+
 bus.on('project:save', async () => (await lazy('./core/storage.js')).saveProject());
 bus.on('project:load', async () => (await lazy('./core/storage.js')).loadProject());
 

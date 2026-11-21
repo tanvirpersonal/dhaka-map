@@ -10,6 +10,7 @@ export function initToolbar() {
   $('btn-build').onclick = () => bus.emit('city:build');
   $('btn-edit').onclick = () => bus.emit('mode:toggleEdit');
   $('btn-export').onclick = () => bus.emit('export:glb');
+  $('btn-gamedata').onclick = () => bus.emit('export:gamedata');
   $('btn-save').onclick = () => bus.emit('project:save');
   $('btn-load').onclick = () => bus.emit('project:load');
 
@@ -26,6 +27,7 @@ export function initToolbar() {
     $('btn-build').disabled = !state.generated;
     $('btn-edit').disabled = !state.generated;
     $('btn-export').disabled = !state.generated;
+    $('btn-gamedata').disabled = !state.generated;
     $('btn-save').disabled = !state.generated;
     $('btn-edit').classList.toggle('active', state.mode === 'edit');
     $('btn-select-area').classList.toggle('primary', state.mode === 'select');
