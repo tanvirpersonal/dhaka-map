@@ -82,7 +82,7 @@ export async function createBuilding(assetId, fit) {
 /** Textured material for a street kind or a specific street asset id. Cached. */
 export async function getStreetMaterial(idOrKind) {
   const m = await loadManifest();
-  const entry = m.streets.find((s) => s.id === idOrKind) || m.streets.find((s) => s.kinds.includes(idOrKind));
+  const entry = m.streets.find((s) => s.id === idOrKind) || m.streets.findLast((s) => s.kinds.includes(idOrKind));
   if (!entry) return null;
   if (!streetMatCache.has(entry.id)) {
     let tex;
@@ -106,5 +106,6 @@ export async function getStreetMaterial(idOrKind) {
 
 export async function getStreetEntry(kind) {
   const m = await loadManifest();
-  return m.streets.find((s) => s.kinds.includes(kind)) || null;
+  // findLast: assets you add later override the built-in ones for the same kind.
+  return m.streets.findLast((s) => s.kinds.includes(kind)) || null;
 }
