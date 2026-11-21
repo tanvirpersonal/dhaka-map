@@ -85,8 +85,13 @@ export async function getStreetMaterial(idOrKind) {
   const entry = m.streets.find((s) => s.id === idOrKind) || m.streets.find((s) => s.kinds.includes(idOrKind));
   if (!entry) return null;
   if (!streetMatCache.has(entry.id)) {
-    const mod = await loadModule(entry);
-    const tex = mod.makeTexture(THREE);
+    let tex;
+    if (entry.type === 'image') {
+      // Blender/Photoshop-authored texture: u across the road, v along it, tiles every tileLength m.
+      tex = await new THREE.TextureLoader().loadAsync(new URL(entry.path, ASSET_ROOT).href);
+    } else {
+      tex = (await loadModule(entry)).makeTexture(THREE);
+    }
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 8;
