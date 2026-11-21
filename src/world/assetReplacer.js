@@ -54,6 +54,11 @@ async function applyStreetTextures() {
     mesh.userData.placeholder = false;
     mesh.userData.streetAsset = entry.id;
   }
+
+  // Sidewalks use the footpath texture (UVs were built for a 3 m tile).
+  const walks = getGroup('sidewalks');
+  const walkMat = walks && await getStreetMaterial('footpath');
+  if (walkMat) walks.children.forEach((m) => { m.material = walkMat; });
 }
 
 /** Current scene object for a building (box or asset instance). */
