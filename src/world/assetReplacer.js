@@ -1,0 +1,104 @@
+// "Build City": replace placeholder boxes with asset modules and street ribbons with textured materials.
+// Also exposes swapBuilding(), used by edit mode to change any single building.
+
+import * as THREE from 'three';
+import { world, disposeObject } from './scene.js';
+import { getGroup } from './cityGenerator.js';
+import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
+import { ribbonGeometry } from './streetFactory.js';
+import {
+  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry,
+} from '../assets/assetLoader.js';
+import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
+import { state } from '../core/state.js';
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+/** Replace every placeholder in the current city. */
+export async function buildCity(data, overrides = {}) {
+  const assets = await listBuildingAssets();
+
+  await applyStreetTextures();
+
+  const group = getGroup('buildings');
+  if (!group) throw new Error('No generated city to build.');
+
+  const byId = new Map(data.buildings.map((b) => [b.id, b]));
+  const targets = [...group.children];
+  for (let i = 0; i < targets.length; i++) {
+    const b = byId.get(targets[i].userData.building?.id);
+    if (b) {
+      const assetId = overrides[b.id] || matchBuildingAsset(b, assets);
+      try {
+        await placeBuilding(b, assetId);
+      } catch (e) {
+        console.warn(`Asset ${assetId} failed for ${b.id}, keeping box`, e);
+      }
+    }
+    if (i % 40 === 39) await tick();
+  }
+}
+
+async function applyStreetTextures() {
+  const streets = getGroup('streets');
+  if (!streets) return;
+  for (const mesh of streets.children) {
+    const road = mesh.userData.road;
+    if (!road) continue;
+    const material = await getStreetMaterial(road.kind);
+    const entry = await getStreetEntry(road.kind);
+    if (!material || !entry) continue;
+    mesh.geometry.dispose();
+    mesh.geometry = ribbonGeometry(road.points, road.width, entry.tileLength);
+    mesh.material = material;
+    mesh.userData.placeholder = false;
+    mesh.userData.streetAsset = entry.id;
+  }
+}
+
+/** Current scene object for a building (box or asset instance). */
+export function findBuildingObject(buildingId) {
+  const group = getGroup('buildings');
+  return group?.children.find((o) => o.userData.building?.id === buildingId) || null;
+}
+
+/**
+ * Put an asset module on a building's lot, replacing whatever is there now.
+ * assetId === null restores the plain box placeholder.
+ */
+export async function placeBuilding(b, assetId) {
+  const group = getGroup('buildings');
+  if (!group) return null;
+  const old = findBuildingObject(b.id);
+
+  let obj;
+  if (!assetId) {
+    obj = makeBuildingBox(b);
+  } else {
+    const frame = footprintFrame(b);
+    // Shrink slightly on irregular lots so the module doesn't overhang concave footprints.
+    const fill = Math.sqrt(Math.min(1, b.area / Math.max(1, frame.width * frame.depth)));
+    const s = Math.max(0.75, fill);
+    obj = await createBuilding(assetId, {
+      width: frame.width * s, depth: frame.depth * s, height: b.height, levels: b.levels, seed: seedFor(b),
+    });
+    obj.position.set(frame.center[0], 0, frame.center[1]);
+    obj.rotation.y = -frame.angle; // module +x follows the lot's long axis
+    obj.userData.building = b;
+    obj.userData.assetId = assetId;
+    obj.name = `bld_${b.id}`;
+  }
+
+  if (old) { group.remove(old); disposeObject(old); }
+  group.add(obj);
+  return obj;
+}
+
+/** User-driven swap from edit mode. Records the choice so saves and rebuilds keep it. */
+export async function swapBuilding(buildingId, assetId) {
+  const old = findBuildingObject(buildingId);
+  const b = old?.userData.building;
+  if (!b) return null;
+  if (assetId) state.overrides[buildingId] = assetId; else delete state.overrides[buildingId];
+  return placeBuilding(b, assetId);
+}

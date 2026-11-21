@@ -83,7 +83,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] assets/streets/footpath.js
 - [x] assets/streets/dirt_track.js
 - [x] src/assets/assetMatcher.js
-- [ ] src/world/assetReplacer.js
+- [x] src/world/assetReplacer.js
 
 ### Phase 5 – Edit mode
 - [ ] src/world/picker.js
