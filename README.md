@@ -113,6 +113,30 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] Parse = indeterminate bar, generate = % by buildings; wired in `src/main.js` + `cityGenerator.js`
 - [ ] Add progress to Build City (asset replacement)
 
+## Upgrade roadmap: performance + GTA-ready map (Phases 7-9)
+
+Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in the same commit.
+
+### Phase 7 – Performance
+- [ ] src/world/optimizer.js  (bake buildings/streets into merged chunk meshes: few draw calls; edit mode shows editable objects)
+- [ ] src/data/cache.js  (IndexedDB cache of OSM responses; repeat generates are instant)
+- [ ] src/world/quality.js  (quality presets: shadows, pixel ratio, fog distance)
+- [ ] Wire optimizer/cache/quality into main.js, overpass.js, index.html
+
+### Phase 8 – GTA map features
+- [ ] parser: road oneway/lanes/maxspeed/name attributes (src/data/parser.js)
+- [ ] src/world/sidewalks.js  (curb + sidewalk ribbons along roads)
+- [ ] src/world/props.js  (instanced street lamps + trees)
+- [ ] src/export/gameData.js  (colliders, road graph, spawn points as JSON for the game)
+- [ ] Wire sidewalks/props into cityGenerator.js, export button
+
+### Phase 9 – Preview tools
+- [ ] src/world/timeOfDay.js  (sun, sky, fog, window glow at night)
+- [ ] src/world/driveMode.js  (drive a test car, collide with buildings)
+- [ ] src/ui/minimap.js
+- [ ] Tiled Overpass fetch for bigger areas (src/data/overpass.js + mapPicker cap)
+- [ ] Wire time slider, drive button, minimap into index.html/main.js
+
 ## Next ideas (unchecked = not started)
 
 - [ ] Browser smoke test + bug fixes (Generate City, Build City, edit swap, GLB export)
