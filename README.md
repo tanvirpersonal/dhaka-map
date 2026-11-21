@@ -118,7 +118,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in the same commit.
 
 ### Phase 7 – Performance
-- [ ] src/world/optimizer.js  (bake buildings/streets into merged chunk meshes: few draw calls; edit mode shows editable objects)
+- [x] src/world/optimizer.js  (bake buildings/streets into merged chunk meshes: few draw calls; edit mode shows editable objects)
 - [ ] src/data/cache.js  (IndexedDB cache of OSM responses; repeat generates are instant)
 - [ ] src/world/quality.js  (quality presets: shadows, pixel ratio, fog distance)
 - [ ] Wire optimizer/cache/quality into main.js, overpass.js, index.html
