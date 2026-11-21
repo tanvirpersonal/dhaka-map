@@ -5,6 +5,8 @@ import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
 import { clearBaked } from './optimizer.js';
+import { makeSidewalks } from './sidewalks.js';
+import { makeProps } from './props.js';
 import { initQuality } from './quality.js';
 
 function flatShape(footprint, y, color, name) {
@@ -54,6 +56,9 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   data.roads.forEach((r) => { const m = makeStreet(r); if (m) streets.add(m); });
   root.add(streets);
 
+  const sidewalks = makeSidewalks(data.roads);
+  if (sidewalks) root.add(sidewalks);
+
   // Yield to the browser periodically so the loader can repaint on big areas.
   const buildings = new THREE.Group(); buildings.name = 'buildings';
   for (let i = 0; i < data.buildings.length; i++) {
@@ -65,6 +70,8 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   }
   onProgress(1);
   root.add(buildings);
+
+  root.add(makeProps(data)); // instanced lamps + trees
 
   frameCity(bounds);
 }
