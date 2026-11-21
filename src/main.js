@@ -46,6 +46,8 @@ bus.on('view:map', () => {
   setStatus('Drag a rectangle on the map to choose an area.');
 });
 
+bus.on('view:city', () => showView('city'));
+
 bus.on('area:selected', (area) => {
   state.area = area;
   state.generated = false;
