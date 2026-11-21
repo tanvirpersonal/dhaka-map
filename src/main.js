@@ -1,7 +1,7 @@
 // App bootstrap + workflow orchestration.
 // Heavy modules are imported lazily so a partially built repo still loads.
 
-import { state, bus, setMode, setStatus, showLoader, hideLoader } from './core/state.js';
+import { state, bus, setMode, setStatus, showLoader, hideLoader, setLoaderProgress } from './core/state.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -58,17 +58,31 @@ bus.on('area:selected', (area) => {
 bus.on('city:generate', async () => {
   if (!state.area) return setStatus('Select an area first.');
   try {
-    showLoader('Downloading map data…');
+    // Each stage shows its own bar: download (real %), parse (indeterminate), generate (real %).
+    showLoader('Contacting map server…');
     const { fetchOsm } = await lazy('./data/overpass.js');
-    const raw = await fetchOsm(state.area);
+    const raw = await fetchOsm(state.area, (p) => {
+      const mb = (p.bytes / 1048576).toFixed(1);
+      if (p.phase === 'waiting') {
+        setLoaderProgress(null, p.total ? `${p.total.toLocaleString()} map items found, waiting for server…` : 'Waiting for server…');
+        return;
+      }
+      document.getElementById('loader-text').textContent = 'Downloading map data…';
+      const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB` : `${mb} MB`;
+      setLoaderProgress(p.percent, detail); // download shows its own 0-100%
+    });
 
     showLoader('Parsing buildings and streets…');
+    setLoaderProgress(null, 'Reading map data…');
+    await new Promise((r) => setTimeout(r, 0)); // let the loader repaint
     const { parseOsm } = await lazy('./data/parser.js');
     state.cityData = parseOsm(raw, state.area);
 
     showLoader('Generating primary city…');
     const { generateCity } = await lazy('./world/cityGenerator.js');
-    await generateCity($('city-canvas'), state.cityData);
+    await generateCity($('city-canvas'), state.cityData, (frac) => {
+      setLoaderProgress(frac * 100, `${state.cityData.buildings.length.toLocaleString()} buildings`);
+    });
 
     state.generated = true;
     state.built = false;
