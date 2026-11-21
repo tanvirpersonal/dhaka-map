@@ -13,6 +13,14 @@ export function initToolbar() {
   $('btn-save').onclick = () => bus.emit('project:save');
   $('btn-load').onclick = () => bus.emit('project:load');
 
+  // Graphics quality: applies live once a city exists; the choice is remembered either way.
+  const q = $('quality');
+  try { q.value = localStorage.getItem('cityQuality') || 'medium'; } catch { /* ignore */ }
+  q.onchange = async () => {
+    try { localStorage.setItem('cityQuality', q.value); } catch { /* ignore */ }
+    if (state.generated) (await import('../world/quality.js')).setQuality(q.value);
+  };
+
   const refresh = () => {
     $('btn-generate').disabled = !state.area;
     $('btn-build').disabled = !state.generated;
