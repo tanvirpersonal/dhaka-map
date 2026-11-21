@@ -9,7 +9,7 @@ const WALK_WIDTH = 2.2;
 const WALK_Y = 0.13; // above every road kind so the curb reads clearly
 const SKIP_HIGHWAYS = new Set(['service', 'track', 'motorway', 'trunk']);
 
-/** Offset a polyline sideways by d meters (positive = left of travel direction). */
+/** Offset a polyline sideways by d meters (positive = right of travel direction, north-up map). */
 export function offsetPolyline(points, d) {
   return points.map(([x, z], i) => {
     const prev = points[Math.max(0, i - 1)];
