@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World City Builder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header id="toolbar">
+    <div class="brand">World City Builder</div>
+    <div class="buttons">
+      <button id="btn-select-area" class="primary">1. Select Area</button>
+      <button id="btn-generate" disabled>2. Generate City</button>
+      <button id="btn-build" disabled>3. Build City</button>
+      <button id="btn-edit" disabled>4. Edit Mode</button>
+      <button id="btn-export" disabled>Export GLB</button>
+      <button id="btn-save" disabled>Save</button>
+      <button id="btn-load">Load</button>
+    </div>
+    <div id="status">Pick an area to begin.</div>
+  </header>
+
+  <main>
+    <section id="map-view" class="view active"></section>
+    <section id="city-view" class="view">
+      <canvas id="city-canvas"></canvas>
+      <aside id="edit-panel" class="hidden"></aside>
+    </section>
+  </main>
+
+  <div id="loader" class="hidden"><div class="spinner"></div><span id="loader-text">Working…</span></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

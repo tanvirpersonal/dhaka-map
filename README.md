@@ -47,7 +47,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 
 ### Phase 0 – Foundation
 - [x] README.md
-- [ ] index.html
+- [x] index.html
 - [ ] css/style.css
 - [ ] src/core/state.js
 - [ ] src/main.js
