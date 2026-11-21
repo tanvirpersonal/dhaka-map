@@ -3,7 +3,7 @@
 // Output:
 // {
 //   buildings: [{ id, footprint:[[x,z]...], height, levels, kind, area, center:[x,z], tags }],
-//   roads:     [{ id, points:[[x,z]...], kind, width, name }],
+//   roads:     [{ id, points:[[x,z]...], kind, width, name, lanes, oneway, maxspeed, drivable, bridge, tunnel }],
 //   greens:    [{ id, footprint }],
 //   water:     [{ id, footprint }],
 //   bounds, area (lat/lon bbox)
@@ -97,13 +97,26 @@ export function parseOsm(raw, area) {
       });
     } else if (tags.highway) {
       if (tags.highway === 'proposed' || tags.highway === 'construction') continue;
+      const lanes = parseInt(tags.lanes, 10) || 0;
+      const speed = parseInt(tags.maxspeed, 10) || 0; // km/h (ignores "50 mph" style, falls back to 0)
+      const oneway = tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === '-1'
+        || tags.highway === 'motorway' || tags.junction === 'roundabout';
+      const reversed = tags.oneway === '-1';
+      const isRoad = !['footway', 'pedestrian', 'path', 'cycleway', 'steps'].includes(tags.highway);
       roads.push({
         id: `r${el.id}`,
-        points: pts,
+        // OSM oneway=-1 means the way is drawn against traffic: flip so points follow travel direction.
+        points: reversed ? [...pts].reverse() : pts,
         kind: roadKind(tags.highway),
         highway: tags.highway,
-        width: ROAD_WIDTH[tags.highway] || 5,
+        width: lanes && isRoad ? Math.max(ROAD_WIDTH[tags.highway] || 5, lanes * 3.2) : (ROAD_WIDTH[tags.highway] || 5),
         name: tags.name || '',
+        lanes: lanes || (isRoad ? (oneway ? 1 : 2) : 0),
+        oneway,
+        maxspeed: speed || 0,
+        drivable: isRoad && !['track'].includes(tags.highway),
+        bridge: !!tags.bridge && tags.bridge !== 'no',
+        tunnel: !!tags.tunnel && tags.tunnel !== 'no',
       });
     } else if (tags.natural === 'water' || tags.waterway) {
       if (pts.length >= 4) water.push({ id: `w${el.id}`, footprint: pts.slice(0, -1) });
