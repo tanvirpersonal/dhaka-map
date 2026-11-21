@@ -56,6 +56,8 @@ export function windows(THREE, group, { width, depth, height, levels, face = 'fr
   const fh = floorH ?? Math.max(2.6, (height - baseY - topMargin) / Math.max(1, levels));
   const nRows = Math.max(1, Math.floor((height - baseY - topMargin) / fh));
   const m = mat(THREE, color, { roughness: 0.25, metalness: 0.2 });
+  m.userData.nightGlow = true; // timeOfDay.js lights windows at night
+  m.emissive.set(0xffd27a);
   const geo = new THREE.PlaneGeometry(winW, winH);
   const mesh = new THREE.InstancedMesh(geo, m, nCols * nRows);
   const dummy = new THREE.Object3D();

@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { bus } from '../core/state.js';
 
 export const world = {
-  scene: null, camera: null, renderer: null, controls: null, sun: null,
+  scene: null, camera: null, renderer: null, controls: null, sun: null, hemi: null,
   cityRoot: null,     // Group holding everything generated for the current city
   ground: null,
   onFrame: new Set(), // callbacks (dt) run every frame
@@ -31,7 +31,8 @@ export function initScene(canvas) {
   controls.maxPolarAngle = Math.PI / 2 - 0.02;
   controls.screenSpacePanning = false;
 
-  scene.add(new THREE.HemisphereLight(0xdfeeff, 0x4a5a3a, 0.9));
+  const hemi = new THREE.HemisphereLight(0xdfeeff, 0x4a5a3a, 0.9);
+  scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffffff, 1.4);
   sun.position.set(300, 500, 200);
   sun.castShadow = true;
@@ -44,7 +45,7 @@ export function initScene(canvas) {
   cityRoot.name = 'cityRoot';
   scene.add(cityRoot);
 
-  Object.assign(world, { scene, camera, renderer, controls, cityRoot, sun });
+  Object.assign(world, { scene, camera, renderer, controls, cityRoot, sun, hemi });
 
   const resize = () => {
     const w = canvas.clientWidth || canvas.parentElement.clientWidth;
