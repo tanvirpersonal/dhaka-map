@@ -52,7 +52,13 @@ bus.on('area:selected', (area) => {
   state.area = area;
   state.generated = false;
   state.built = false;
-  setStatus('Area selected. Tap "Generate City".');
+  const kmH = (area.north - area.south) * 111.32;
+  const kmW = (area.east - area.west) * 111.32 * Math.cos(((area.north + area.south) / 2) * Math.PI / 180);
+  import('./data/overpass.js').then(({ planTiles }) => {
+    const tiles = planTiles(area).length;
+    const big = Math.max(kmW, kmH) > 3.2 ? ' Large area: needs a strong device; use Low quality if it lags.' : '';
+    setStatus(`Area ${kmW.toFixed(1)} x ${kmH.toFixed(1)} km (${tiles} download tile${tiles > 1 ? 's' : ''}). Tap "Generate City".${big}`);
+  });
 });
 
 const tick = () => new Promise((r) => setTimeout(r, 0));

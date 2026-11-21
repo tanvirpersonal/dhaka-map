@@ -3,7 +3,7 @@
 import * as L from 'leaflet';
 import { state, bus, setStatus } from '../core/state.js';
 
-const MAX_SPAN_DEG = 0.02; // ~2.2 km; keeps Overpass requests and the 3D scene manageable
+const MAX_SPAN_DEG = 0.045; // ~5 km per side; downloaded in tiles (see data/overpass.js fetchOsmTiled)
 
 let map, rect, startLatLng, drawing = false, drawMode = true;
 

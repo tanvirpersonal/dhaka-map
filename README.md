@@ -134,7 +134,7 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [x] src/world/timeOfDay.js  (sun, sky, fog, window glow at night)
 - [x] src/world/driveMode.js  (drive a test car, collide with buildings)
 - [x] src/ui/minimap.js
-- [ ] Tiled Overpass fetch for bigger areas (src/data/overpass.js + mapPicker cap)
+- [x] Tiled Overpass fetch for bigger areas (src/data/overpass.js + mapPicker cap raised to 0.045 deg ~5 km)
 - [ ] Wire time slider, drive button, minimap into index.html/main.js
 
 ## Next ideas (unchecked = not started)
