@@ -18,7 +18,7 @@ function flatShape(footprint, y, color, name) {
   return mesh;
 }
 
-export async function generateCity(canvas, data) {
+export async function generateCity(canvas, data, onProgress = () => {}) {
   initScene(canvas);
   clearCity();
   const root = world.cityRoot;
@@ -53,8 +53,12 @@ export async function generateCity(canvas, data) {
   const buildings = new THREE.Group(); buildings.name = 'buildings';
   for (let i = 0; i < data.buildings.length; i++) {
     buildings.add(makeBuildingBox(data.buildings[i]));
-    if (i % 400 === 399) await new Promise((r) => setTimeout(r, 0));
+    if (i % 200 === 199) {
+      onProgress((i + 1) / data.buildings.length);
+      await new Promise((r) => setTimeout(r, 0));
+    }
   }
+  onProgress(1);
   root.add(buildings);
 
   frameCity(bounds);
