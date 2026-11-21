@@ -86,7 +86,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] src/world/assetReplacer.js
 
 ### Phase 5 – Edit mode
-- [ ] src/world/picker.js
+- [x] src/world/picker.js
 - [ ] src/ui/editPanel.js
 - [ ] src/world/editMode.js
 
