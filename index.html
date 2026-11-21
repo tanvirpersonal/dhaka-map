@@ -39,7 +39,13 @@
     </section>
   </main>
 
-  <div id="loader" class="hidden"><div class="spinner"></div><span id="loader-text">Working…</span></div>
+  <div id="loader" class="hidden">
+    <div class="loader-box">
+      <div class="loader-row"><div class="spinner"></div><span id="loader-text">Working…</span></div>
+      <div id="loader-bar" class="indeterminate"><div id="loader-fill"></div></div>
+      <div id="loader-pct"></div>
+    </div>
+  </div>
 
   <script type="module" src="src/main.js"></script>
 </body>
