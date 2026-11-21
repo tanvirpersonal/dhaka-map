@@ -100,6 +100,12 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 
 **All planned files are built and pushed.** Not yet tested in a real browser/WebGL (only syntax, import graph and parser/matcher logic were verified in Node). First thing to do next session: run `python3 -m http.server`, open the page, and fix bugs one at a time (fix, then push each).
 
+## Blender assets workflow (done)
+
+- [x] `.glb` buildings: drop in `assets/buildings/<category>/`, run `node tools/scan-assets.mjs` (see `assets/README.md`)
+- [x] Image street textures (`.png/.jpg`) in `assets/streets/`, later-added override built-ins per kind
+- [x] tools/scan-assets.mjs auto-registers new assets in `manifest.json`
+
 ## Next ideas (unchecked = not started)
 
 - [ ] Browser smoke test + bug fixes (Generate City, Build City, edit swap, GLB export)
