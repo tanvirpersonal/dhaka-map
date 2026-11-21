@@ -107,6 +107,8 @@ export function parseOsm(raw, area) {
         id: `r${el.id}`,
         // OSM oneway=-1 means the way is drawn against traffic: flip so points follow travel direction.
         points: reversed ? [...pts].reverse() : pts,
+        // OSM node ids per point (same order as points): shared ids mark intersections for the road graph.
+        nodeIds: reversed ? [...(el.nodes || [])].reverse() : (el.nodes || []),
         kind: roadKind(tags.highway),
         highway: tags.highway,
         width: lanes && isRoad ? Math.max(ROAD_WIDTH[tags.highway] || 5, lanes * 3.2) : (ROAD_WIDTH[tags.highway] || 5),
