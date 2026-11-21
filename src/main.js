@@ -55,26 +55,46 @@ bus.on('area:selected', (area) => {
   setStatus('Area selected. Tap "Generate City".');
 });
 
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+// Merge the city into a few chunk meshes (see world/optimizer.js) for smooth viewing.
+async function bake(label = 'Optimizing for speed…') {
+  showLoader(label);
+  setLoaderProgress(null, 'Merging meshes…');
+  await tick();
+  const { bakeCity } = await lazy('./world/optimizer.js');
+  return bakeCity();
+}
+
 bus.on('city:generate', async () => {
   if (!state.area) return setStatus('Select an area first.');
   try {
     // Each stage shows its own bar: download (real %), parse (indeterminate), generate (real %).
     showLoader('Contacting map server…');
-    const { fetchOsm } = await lazy('./data/overpass.js');
-    const raw = await fetchOsm(state.area, (p) => {
-      const mb = (p.bytes / 1048576).toFixed(1);
-      if (p.phase === 'waiting') {
-        setLoaderProgress(null, p.total ? `${p.total.toLocaleString()} map items found, waiting for server…` : 'Waiting for server…');
-        return;
-      }
-      document.getElementById('loader-text').textContent = 'Downloading map data…';
-      const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB` : `${mb} MB`;
-      setLoaderProgress(p.percent, detail); // download shows its own 0-100%
-    });
+    const { getCached, putCached } = await lazy('./data/cache.js');
+    let raw = await getCached(state.area);
+    if (raw) {
+      document.getElementById('loader-text').textContent = 'Using saved map data…';
+      setLoaderProgress(100, 'loaded from cache, no download needed');
+      await tick();
+    } else {
+      const { fetchOsm } = await lazy('./data/overpass.js');
+      raw = await fetchOsm(state.area, (p) => {
+        const mb = (p.bytes / 1048576).toFixed(1);
+        if (p.phase === 'waiting') {
+          setLoaderProgress(null, p.total ? `${p.total.toLocaleString()} map items found, waiting for server…` : 'Waiting for server…');
+          return;
+        }
+        document.getElementById('loader-text').textContent = 'Downloading map data…';
+        const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB` : `${mb} MB`;
+        setLoaderProgress(p.percent, detail); // download shows its own 0-100%
+      });
+      putCached(state.area, raw); // fire and forget
+    }
 
     showLoader('Parsing buildings and streets…');
     setLoaderProgress(null, 'Reading map data…');
-    await new Promise((r) => setTimeout(r, 0)); // let the loader repaint
+    await tick(); // let the loader repaint
     const { parseOsm } = await lazy('./data/parser.js');
     state.cityData = parseOsm(raw, state.area);
 
@@ -83,6 +103,7 @@ bus.on('city:generate', async () => {
     await generateCity($('city-canvas'), state.cityData, (frac) => {
       setLoaderProgress(frac * 100, `${state.cityData.buildings.length.toLocaleString()} buildings`);
     });
+    const stats = await bake();
 
     state.generated = true;
     state.built = false;
@@ -90,7 +111,7 @@ bus.on('city:generate', async () => {
     setMode('city');
     showView('city');
     const { buildings, roads } = state.cityData;
-    setStatus(`Primary city: ${buildings.length} buildings, ${roads.length} streets. Tap "Build City".`);
+    setStatus(`Primary city: ${buildings.length} buildings, ${roads.length} streets, ${stats.drawCallsAfter} draw calls. Tap "Build City".`);
     bus.emit('city:generated', state.cityData);
   } catch (e) {
     console.error(e);
@@ -104,10 +125,13 @@ bus.on('city:build', async () => {
   if (!state.generated) return;
   try {
     showLoader('Loading asset modules…');
+    const { setBaked } = await lazy('./world/optimizer.js');
+    setBaked(false); // build into the editable objects, then re-bake
     const { buildCity } = await lazy('./world/assetReplacer.js');
     await buildCity(state.cityData, state.overrides);
     state.built = true;
-    setStatus('City built with asset modules. Use Edit Mode to swap buildings.');
+    const stats = await bake();
+    setStatus(`City built with asset modules (${stats.drawCallsAfter} draw calls). Use Edit Mode to swap buildings.`);
     bus.emit('city:built');
   } catch (e) {
     console.error(e);
@@ -120,10 +144,20 @@ bus.on('city:build', async () => {
 bus.on('mode:toggleEdit', async () => {
   if (!state.generated) return;
   const entering = state.mode !== 'edit';
-  const { setEditMode } = await lazy('./world/editMode.js');
-  setEditMode(entering);
-  setMode(entering ? 'edit' : 'city');
-  setStatus(entering ? 'Edit mode: click a building to swap its asset.' : 'Edit mode off.');
+  try {
+    const { setEditMode } = await lazy('./world/editMode.js');
+    if (entering) {
+      (await lazy('./world/optimizer.js')).setBaked(false); // editable objects needed for picking
+      setEditMode(true);
+    } else {
+      setEditMode(false);
+      await bake('Applying your edits…'); // re-merge so swaps are fast to render
+    }
+    setMode(entering ? 'edit' : 'city');
+    setStatus(entering ? 'Edit mode: click a building to swap its asset.' : 'Edit mode off.');
+  } finally {
+    hideLoader();
+  }
 });
 
 bus.on('export:glb', async () => {
