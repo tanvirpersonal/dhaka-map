@@ -49,7 +49,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] README.md
 - [x] index.html
 - [x] css/style.css
-- [ ] src/core/state.js
+- [x] src/core/state.js
 - [ ] src/main.js
 
 ### Phase 1 – Map area selection
