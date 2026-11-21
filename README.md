@@ -75,7 +75,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] assets/buildings/residential/apartment_block.js
 - [x] assets/buildings/commercial/shop_row.js
 - [x] assets/buildings/commercial/office_tower.js
-- [ ] assets/buildings/industrial/warehouse.js
+- [x] assets/buildings/industrial/warehouse.js
 - [ ] assets/buildings/public/school.js
 - [ ] assets/streets/asphalt_primary.js
 - [ ] assets/streets/asphalt_secondary.js
