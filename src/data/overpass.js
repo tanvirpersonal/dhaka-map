@@ -4,6 +4,8 @@
 // Overpass sends no total size, so we first ask it how many ways the query matches (a tiny
 // "out count" request), then count ways as the JSON streams in: percent = ways seen / total.
 
+import { getCached, putCached } from './cache.js';
+
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -90,4 +92,70 @@ export async function fetchOsm(area, onProgress = () => {}) {
     }
   }
   throw new Error(`Could not download map data (${lastErr?.message || 'network error'}). Try a smaller area.`);
+}
+
+// ---------- large areas: split into tiles, download one by one, merge ----------
+
+export const TILE_DEG = 0.015; // ~1.6 km per tile side
+
+/** Split an area into tiles of at most TILE_DEG per side (row-major). */
+export function planTiles(area, tileDeg = TILE_DEG) {
+  const nx = Math.max(1, Math.ceil((area.east - area.west) / tileDeg - 1e-9));
+  const nz = Math.max(1, Math.ceil((area.north - area.south) / tileDeg - 1e-9));
+  const dx = (area.east - area.west) / nx, dz = (area.north - area.south) / nz;
+  const tiles = [];
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      tiles.push({
+        south: area.south + j * dz, north: area.south + (j + 1) * dz,
+        west: area.west + i * dx, east: area.west + (i + 1) * dx,
+      });
+    }
+  }
+  return tiles;
+}
+
+/**
+ * Like fetchOsm but for big areas: tiles are downloaded sequentially (kind to the public servers),
+ * cached per tile, and merged with duplicate ways (those crossing tile edges) removed.
+ * onProgress gets {phase, percent (overall), ways, total, bytes, tile, tiles}.
+ */
+export async function fetchOsmTiled(area, onProgress = () => {}) {
+  const tiles = planTiles(area);
+  if (tiles.length === 1) return fetchOsm(area, (p) => onProgress({ ...p, tile: 1, tiles: 1 }));
+
+  const seen = new Set();
+  const elements = [];
+  let bytes = 0, waysSoFar = 0, tileBytes = 0;
+
+  for (let t = 0; t < tiles.length; t++) {
+    const tile = tiles[t];
+    let raw = await getCached(tile, '|tile');
+    tileBytes = 0;
+    if (!raw) {
+      raw = await fetchOsm(tile, (p) => {
+        tileBytes = p.bytes;
+        const within = p.percent == null ? 0 : p.percent / 100;
+        onProgress({
+          phase: p.phase, percent: ((t + within) / tiles.length) * 100,
+          ways: waysSoFar + p.ways, total: null, bytes: bytes + p.bytes, tile: t + 1, tiles: tiles.length,
+        });
+      });
+      putCached(tile, raw, '|tile');
+      if (t < tiles.length - 1) await new Promise((r) => setTimeout(r, 400));
+    }
+    for (const el of raw.elements) {
+      const key = `${el.type}${el.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      elements.push(el);
+      if (el.type === 'way') waysSoFar++;
+    }
+    bytes += tileBytes; // 0 for tiles served from the cache
+    onProgress({
+      phase: 'download', percent: ((t + 1) / tiles.length) * 100, ways: waysSoFar, total: null,
+      bytes, tile: t + 1, tiles: tiles.length,
+    });
+  }
+  return { elements };
 }
