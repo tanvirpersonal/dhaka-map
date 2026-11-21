@@ -53,7 +53,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] src/main.js
 
 ### Phase 1 – Map area selection
-- [ ] src/ui/mapPicker.js
+- [x] src/ui/mapPicker.js
 - [ ] src/ui/toolbar.js
 
 ### Phase 2 – Data pipeline
