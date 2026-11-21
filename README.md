@@ -126,7 +126,7 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 ### Phase 8 – GTA map features
 - [x] parser: road oneway/lanes/maxspeed/name attributes (src/data/parser.js)
 - [x] src/world/sidewalks.js  (curb + sidewalk ribbons along roads)
-- [ ] src/world/props.js  (instanced street lamps + trees)
+- [x] src/world/props.js  (instanced street lamps + trees)
 - [ ] src/export/gameData.js  (colliders, road graph, spawn points as JSON for the game)
 - [ ] Wire sidewalks/props into cityGenerator.js, export button
 
