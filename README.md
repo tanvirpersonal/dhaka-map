@@ -131,7 +131,7 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [x] Wire sidewalks/props into cityGenerator.js (+ footpath texture in assetReplacer.js), Export Game Data button
 
 ### Phase 9 – Preview tools
-- [ ] src/world/timeOfDay.js  (sun, sky, fog, window glow at night)
+- [x] src/world/timeOfDay.js  (sun, sky, fog, window glow at night)
 - [ ] src/world/driveMode.js  (drive a test car, collide with buildings)
 - [ ] src/ui/minimap.js
 - [ ] Tiled Overpass fetch for bigger areas (src/data/overpass.js + mapPicker cap)
