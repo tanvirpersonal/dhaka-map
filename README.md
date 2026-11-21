@@ -93,5 +93,5 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 ### Phase 6 – Export & polish
 - [x] src/export/glbExport.js
 - [x] src/core/storage.js
-- [ ] assets/README.md (how to add new assets)
+- [x] assets/README.md (how to add new assets)
 - [ ] Final syntax/import check of all files
