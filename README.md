@@ -106,6 +106,13 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] Image street textures (`.png/.jpg`) in `assets/streets/`, later-added override built-ins per kind
 - [x] tools/scan-assets.mjs auto-registers new assets in `manifest.json`
 
+## Loader progress (done)
+
+- [x] Loader bar with percent (index.html, css/style.css, `setLoaderProgress` in state.js)
+- [x] Real download % in `src/data/overpass.js`: count query first, then count streamed ways (percent = ways seen / total ways)
+- [x] Parse = indeterminate bar, generate = % by buildings; wired in `src/main.js` + `cityGenerator.js`
+- [ ] Add progress to Build City (asset replacement)
+
 ## Next ideas (unchecked = not started)
 
 - [ ] Browser smoke test + bug fixes (Generate City, Build City, edit swap, GLB export)
