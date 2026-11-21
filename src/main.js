@@ -78,16 +78,18 @@ bus.on('city:generate', async () => {
       setLoaderProgress(100, 'loaded from cache, no download needed');
       await tick();
     } else {
-      const { fetchOsm } = await lazy('./data/overpass.js');
-      raw = await fetchOsm(state.area, (p) => {
+      const { fetchOsmTiled } = await lazy('./data/overpass.js');
+      raw = await fetchOsmTiled(state.area, (p) => {
         const mb = (p.bytes / 1048576).toFixed(1);
-        if (p.phase === 'waiting') {
+        const tileNote = p.tiles > 1 ? `tile ${p.tile}/${p.tiles} · ` : '';
+        if (p.phase === 'waiting' && p.tiles <= 1) {
           setLoaderProgress(null, p.total ? `${p.total.toLocaleString()} map items found, waiting for server…` : 'Waiting for server…');
           return;
         }
         document.getElementById('loader-text').textContent = 'Downloading map data…';
-        const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB` : `${mb} MB`;
-        setLoaderProgress(p.percent, detail); // download shows its own 0-100%
+        const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB`
+          : `${tileNote}${p.ways.toLocaleString()} items · ${mb} MB`;
+        setLoaderProgress(p.percent, detail); // download shows its own 0-100% (overall across tiles)
       });
       putCached(state.area, raw); // fire and forget
     }
