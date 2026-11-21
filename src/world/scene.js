@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { bus } from '../core/state.js';
 
 export const world = {
-  scene: null, camera: null, renderer: null, controls: null,
+  scene: null, camera: null, renderer: null, controls: null, sun: null,
   cityRoot: null,     // Group holding everything generated for the current city
   ground: null,
   onFrame: new Set(), // callbacks (dt) run every frame
@@ -44,7 +44,7 @@ export function initScene(canvas) {
   cityRoot.name = 'cityRoot';
   scene.add(cityRoot);
 
-  Object.assign(world, { scene, camera, renderer, controls, cityRoot });
+  Object.assign(world, { scene, camera, renderer, controls, cityRoot, sun });
 
   const resize = () => {
     const w = canvas.clientWidth || canvas.parentElement.clientWidth;
