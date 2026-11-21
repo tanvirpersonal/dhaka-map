@@ -78,5 +78,7 @@ async function restore(project) {
   } else {
     for (const [id, assetId] of Object.entries(state.overrides)) await swapBuilding(id, assetId);
   }
+  const { bakeCity } = await import('../world/optimizer.js');
+  bakeCity();
   bus.emit('project:loaded');
 }

@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
+import { clearBaked } from './optimizer.js';
+import { initQuality } from './quality.js';
 
 function flatShape(footprint, y, color, name) {
   const shape = new THREE.Shape();
@@ -19,7 +21,10 @@ function flatShape(footprint, y, color, name) {
 }
 
 export async function generateCity(canvas, data, onProgress = () => {}) {
+  const firstRun = !world.renderer;
   initScene(canvas);
+  if (firstRun) initQuality();
+  clearBaked();
   clearCity();
   const root = world.cityRoot;
   const { bounds } = data;
