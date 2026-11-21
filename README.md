@@ -65,7 +65,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] src/world/scene.js
 - [x] src/world/buildingFactory.js
 - [x] src/world/streetFactory.js
-- [ ] src/world/cityGenerator.js
+- [x] src/world/cityGenerator.js
 
 ### Phase 4 – Asset system + Build City
 - [ ] assets/manifest.json
