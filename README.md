@@ -94,4 +94,17 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] src/export/glbExport.js
 - [x] src/core/storage.js
 - [x] assets/README.md (how to add new assets)
-- [ ] Final syntax/import check of all files
+- [x] Final syntax/import check of all files (node --check + import/export cross-check + manifest paths: 0 problems)
+
+## Status
+
+**All planned files are built and pushed.** Not yet tested in a real browser/WebGL (only syntax, import graph and parser/matcher logic were verified in Node). First thing to do next session: run `python3 -m http.server`, open the page, and fix bugs one at a time (fix, then push each).
+
+## Next ideas (unchecked = not started)
+
+- [ ] Browser smoke test + bug fixes (Generate City, Build City, edit swap, GLB export)
+- [ ] Rotate asset fronts to face the nearest street
+- [ ] Terrain/elevation, trees and street props (lamps, signs) as new asset categories
+- [ ] Per-street swap in edit mode (street textures from `assets/streets`)
+- [ ] Drive/walk test mode (player controller) for GTA-style games
+- [ ] GitHub Pages deploy note + live link
