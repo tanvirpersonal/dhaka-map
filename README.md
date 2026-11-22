@@ -140,8 +140,8 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 ### Phase 10 – Scale + visual quality (driven by browser measurements: 1,764 buildings = 5,840 draw calls, 872k tris, 80 MB geometry)
 - [x] Pause rendering behind the loader (Build City 356 s -> 12 s)
 - [x] src/world/layers.js  (z-fighting fix: ground/parks/roads/sidewalks drawn by renderOrder, no depth fighting)
-- [ ] src/world/optimizer.js: merge by material signature + vertex colors, indexed merge, 400 m chunks (draw calls down ~10x)
-- [ ] src/assets/moduleKit.js: facade-texture windows instead of window quads (tris/memory down ~5x), update the 4 modules that use windows()
+- [x] src/world/optimizer.js: merge by material signature + vertex colors, indexed merge, 400 m chunks (measured: 5,840 -> 603 draw calls at 1,764 buildings)
+- [x] src/assets/facade.js: facade-texture windows/curtain wall/corrugated metal + per-window night lighting; all 6 building modules converted (measured: 872k -> 333k tris, 80 -> 30 MB, heap 631 -> 159 MB)
 - [ ] Buildings face the nearest street (assetReplacer.js + src/world/streetIndex.js)
 - [ ] Ambient traffic on the road graph in drive mode (src/world/traffic.js)
 - [ ] Re-run browser e2e + stress test (tools/e2e in scratchpad, not in repo) and record numbers here
