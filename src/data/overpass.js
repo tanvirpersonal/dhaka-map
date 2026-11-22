@@ -50,7 +50,7 @@ export async function fetchOsm(area, onProgress = () => {}) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
 
-      let text = '', bytes = 0, ways = 0, scanFrom = 0;
+      let text = '', bytes = 0;
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
