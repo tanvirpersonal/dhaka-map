@@ -144,7 +144,11 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [x] src/assets/facade.js: facade-texture windows/curtain wall/corrugated metal + per-window night lighting; all 6 building modules converted (measured: 872k -> 333k tris, 80 -> 30 MB, heap 631 -> 159 MB)
 - [x] Buildings face the nearest street (assetReplacer.js + src/world/streetIndex.js; verified on 4,000 random lots)
 - [x] Ambient traffic on the road graph in drive mode (src/world/traffic.js: lane side, one-way, car following, junction waiting; 2 draw calls; 200 cars = 0.03 ms/step in Node; player collides with traffic via capsules)
-- [ ] Re-run browser e2e + stress test (tools/e2e in scratchpad, not in repo) and record numbers here
+- [x] Browser e2e + stress test now in the repo: `tools/e2e/` (see its README). Measured on the current code:
+  - `traffic-e2e.js`: 15/15 checks pass in real Chromium, 0 console errors (generate, build, traffic on/off, drive with traffic, regenerate stops traffic)
+  - `stress.js 0.03` (1,764 buildings, 44 streets, 4 download tiles, 200 traffic cars): generate 1.9 s, Build City 8.1 s, 602 baked meshes, 318k tris / 28.5 MB geometry, JS heap 179 MB
+  - draw calls per frame: 610 without traffic, 612 with 200 cars (cars cost 2 draw calls, ~5k tris); traffic simulation 0.047 ms per step in the browser
+  - frame times are not reported: the test browser uses software rendering (about 1 fps), so judge FPS on real hardware
 
 ## Next ideas (unchecked = not started)
 
