@@ -186,11 +186,17 @@ export function startDrive() {
   const speedEl = pad.querySelector('#drive-speed');
 
   const previousCamera = { position: world.camera.position.clone(), target: world.controls.target.clone(), zoom: world.camera.zoom };
-  const camPos = world.camera.position.clone();
+  const camPos = new THREE.Vector3();
   const look = new THREE.Vector3();
   const desiredPos = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
   let cameraDistance = 10.5, cameraHeight = 5.2;
+  // Start directly in the chase position instead of sweeping in from the distant city overview.
+  const startFx = Math.sin(car.heading), startFz = Math.cos(car.heading);
+  camPos.set(car.x - startFx * cameraDistance, 0.05 + cameraHeight, car.z - startFz * cameraDistance);
+  look.set(car.x + startFx * 3.2, 1.05, car.z + startFz * 3.2);
+  world.camera.position.copy(camPos);
+  world.camera.lookAt(look);
   const frame = (dt) => {
     dt = Math.min(dt, 0.05);
     stepCar(car, input, dt, resolve);
