@@ -11,6 +11,7 @@ import {
 } from '../assets/assetLoader.js';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
+import { getStreetIndex, faceStreet } from './streetIndex.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -83,14 +84,17 @@ export async function placeBuilding(b, assetId) {
     obj = makeBuildingBox(b);
   } else {
     const frame = footprintFrame(b);
+    // Turn the front toward the nearest street (module +z is the front).
+    const street = state.cityData ? getStreetIndex(state.cityData.roads).nearest(b.center[0], b.center[1], 60) : null;
+    const face = faceStreet(frame, frame.center, street);
     // Shrink slightly on irregular lots so the module doesn't overhang concave footprints.
     const fill = Math.sqrt(Math.min(1, b.area / Math.max(1, frame.width * frame.depth)));
     const s = Math.max(0.75, fill);
     obj = await createBuilding(assetId, {
-      width: frame.width * s, depth: frame.depth * s, height: b.height, levels: b.levels, seed: seedFor(b),
+      width: face.width * s, depth: face.depth * s, height: b.height, levels: b.levels, seed: seedFor(b),
     });
     obj.position.set(frame.center[0], 0, frame.center[1]);
-    obj.rotation.y = -frame.angle; // module +x follows the lot's long axis
+    obj.rotation.y = face.rotY;
     obj.userData.building = b;
     obj.userData.assetId = assetId;
     obj.name = `bld_${b.id}`;
