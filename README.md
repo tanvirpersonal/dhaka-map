@@ -152,10 +152,12 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 
 ## Next ideas (unchecked = not started)
 
-- [ ] Browser smoke test + bug fixes (Generate City, Build City, edit swap, GLB export)
-- [ ] Rotate asset fronts to face the nearest street
-- [ ] Terrain/elevation, trees and street props (lamps, signs) as new asset categories
-- [ ] Per-street swap in edit mode (street textures from `assets/streets`)
-- [x] Drive test mode with ambient traffic (done). Walk mode (on-foot player controller) still open
+Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.
+
 - [ ] On-foot walk mode (player controller) for GTA-style games
+- [ ] Traffic lights / stop signs at junctions, AI cars braking for the player
+- [ ] Pedestrians on footpaths (use `spawnPoints.pedestrians` from the game-data export)
+- [ ] Terrain/elevation (SRTM or similar) so hills and bridges are not flat
+- [ ] Per-street swap in edit mode (street textures from `assets/streets`)
+- [ ] More asset categories made in Blender (see `assets/README.md`): street signs, bus stops, fences, mosque/temple, bridges
 - [ ] GitHub Pages deploy note + live link
