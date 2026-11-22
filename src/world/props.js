@@ -40,22 +40,65 @@ function boundsOf(poly) {
   return { minX, maxX, minZ, maxZ };
 }
 
-/** Spatial hash of building footprints (bounding circles) so props never spawn inside buildings. */
+/** Spatial hash of building footprints; also keeps trunks clear of lot edges. */
 function buildingIndex(buildings) {
   const cell = 40, map = new Map();
   const key = (x, z) => `${Math.floor(x / cell)},${Math.floor(z / cell)}`;
   for (const b of buildings) {
     const bb = boundsOf(b.footprint);
-    for (let x = Math.floor(bb.minX / cell); x <= Math.floor(bb.maxX / cell); x++) {
-      for (let z = Math.floor(bb.minZ / cell); z <= Math.floor(bb.maxZ / cell); z++) {
+    for (let x = Math.floor((bb.minX - 4) / cell); x <= Math.floor((bb.maxX + 4) / cell); x++) {
+      for (let z = Math.floor((bb.minZ - 4) / cell); z <= Math.floor((bb.maxZ + 4) / cell); z++) {
         const k = `${x},${z}`;
         if (!map.has(k)) map.set(k, []);
         map.get(k).push({ b, bb });
       }
     }
   }
-  return (x, z, pad = 1.5) => (map.get(key(x, z)) || []).some(({ b, bb }) =>
-    x > bb.minX - pad && x < bb.maxX + pad && z > bb.minZ - pad && z < bb.maxZ + pad && pointInPolygon(x, z, b.footprint));
+  return (x, z, pad = 2.5) => (map.get(key(x, z)) || []).some(({ b, bb }) => {
+    if (x < bb.minX - pad || x > bb.maxX + pad || z < bb.minZ - pad || z > bb.maxZ + pad) return false;
+    if (pointInPolygon(x, z, b.footprint)) return true;
+    // Distance to polygon edges catches trees just outside a lot boundary.
+    for (let i = 0, j = b.footprint.length - 1; i < b.footprint.length; j = i++) {
+      const [ax, az] = b.footprint[j], [bx, bz] = b.footprint[i];
+      const dx = bx - ax, dz = bz - az;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1)));
+      if (Math.hypot(x - ax - dx * t, z - az - dz * t) < pad) return true;
+    }
+    return false;
+  });
+}
+
+/** Road clearance index: reject trees inside the carriageway or too close to its edge. */
+function roadClearanceIndex(roads) {
+  const cell = 40, map = new Map();
+  const key = (x, z) => `${Math.floor(x / cell)},${Math.floor(z / cell)}`;
+  for (const road of roads) {
+    if (!road.points || road.points.length < 2) continue;
+    const half = (road.width || 4) / 2;
+    for (let i = 1; i < road.points.length; i++) {
+      const a = road.points[i - 1], b = road.points[i];
+      const minX = Math.min(a[0], b[0]) - half - 5, maxX = Math.max(a[0], b[0]) + half + 5;
+      const minZ = Math.min(a[1], b[1]) - half - 5, maxZ = Math.max(a[1], b[1]) + half + 5;
+      for (let x = Math.floor(minX / cell); x <= Math.floor(maxX / cell); x++) {
+        for (let z = Math.floor(minZ / cell); z <= Math.floor(maxZ / cell); z++) {
+          const k = `${x},${z}`;
+          if (!map.has(k)) map.set(k, []);
+          map.get(k).push({ a, b, clearance: half + 4.5 });
+        }
+      }
+    }
+  }
+  return (x, z) => {
+    const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
+    for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gz = cz - 1; gz <= cz + 1; gz++) {
+      for (const seg of map.get(`${gx},${gz}`) || []) {
+        const dx = seg.b[0] - seg.a[0], dz = seg.b[1] - seg.a[1];
+        const t = Math.max(0, Math.min(1, ((x - seg.a[0]) * dx + (z - seg.a[1]) * dz) / (dx * dx + dz * dz || 1)));
+        if (Math.hypot(x - seg.a[0] - dx * t, z - seg.a[1] - dz * t) < seg.clearance) return false;
+      }
+    }
+    return true;
+  };
 }
 
 function lampMeshes(matrices) {
@@ -97,6 +140,7 @@ export function makeProps(data) {
   const group = new THREE.Group();
   group.name = 'props';
   const inBuilding = buildingIndex(data.buildings);
+  const roadClear = roadClearanceIndex(data.roads);
   const r = rng(hashString(`${data.area.south},${data.area.west}`));
 
   // Street lamps: alternate sides along primary/secondary/residential roads.
@@ -133,9 +177,9 @@ export function makeProps(data) {
   for (const road of data.roads) {
     if (!road.drivable || road.bridge || road.tunnel || road.kind === 'primary' || road.highway === 'service') continue;
     for (const side of [1, -1]) {
-      const line = offsetPolyline(road.points, side * (road.width / 2 + 3.2));
+      const line = offsetPolyline(road.points, side * (road.width / 2 + 6.5));
       for (const p of sampleAlong(line, TREE_SPACING, r() * TREE_SPACING)) {
-        if (r() < 0.45 || inBuilding(p.x, p.z, 2.5)) continue;
+        if (r() < 0.45 || inBuilding(p.x, p.z, 3) || !roadClear(p.x, p.z)) continue;
         addTree(p.x, p.z);
       }
     }
@@ -146,7 +190,7 @@ export function makeProps(data) {
     const target = Math.min(120, Math.floor(area / 180));
     for (let i = 0, tries = 0; i < target && tries < target * 6; tries++) {
       const x = bb.minX + r() * (bb.maxX - bb.minX), z = bb.minZ + r() * (bb.maxZ - bb.minZ);
-      if (pointInPolygon(x, z, g.footprint) && !inBuilding(x, z, 2)) { addTree(x, z); i++; }
+      if (pointInPolygon(x, z, g.footprint) && !inBuilding(x, z, 3) && roadClear(x, z)) { addTree(x, z); i++; }
     }
   }
   if (trees.length) treeMeshes(trees).forEach((m) => group.add(m));
