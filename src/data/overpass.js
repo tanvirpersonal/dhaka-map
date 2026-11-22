@@ -22,7 +22,6 @@ function selectors({ south, west, north, east }) {
 }
 
 const dataQuery = (area) => `[out:json][timeout:60];\n(\n${selectors(area)}\n);\nout body geom;`;
-const countQuery = (area) => `[out:json][timeout:30];\n(\n${selectors(area)}\n);\nout count;`;
 
 async function post(url, query, signal) {
   const res = await fetch(url, {
@@ -50,7 +49,6 @@ export async function fetchOsm(area, onProgress = () => {}) {
       const res = await post(url, dataQuery(area), AbortSignal.timeout(90000));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      const wayRe = /"type"\s*:\s*"way"/g;
 
       let text = '', bytes = 0, ways = 0, scanFrom = 0;
       for (;;) {
