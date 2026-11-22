@@ -1,8 +1,8 @@
 // Fetch buildings, roads and a few extras from OpenStreetMap via the Overpass API,
 // reporting real download progress.
 //
-// Overpass sends no total size, so we first ask it how many ways the query matches (a tiny
-// "out count" request), then count ways as the JSON streams in: percent = ways seen / total.
+// Skip a separate count query so the actual map download starts immediately.
+// Overpass does not reliably expose a total response size, so progress uses streamed MB.
 
 import { getCached, putCached } from './cache.js';
 
@@ -44,9 +44,8 @@ export async function fetchOsm(area, onProgress = () => {}) {
 
   for (const url of ENDPOINTS) {
     try {
-      onProgress({ phase: 'waiting', percent: null, ways: 0, total: null, bytes: 0 });
       // Skip the separate count query: it doubles server round-trips and often adds
-      // several seconds of latency before the real map download even begins.
+      // several seconds before the real map download even begins.
       onProgress({ phase: 'waiting', percent: null, ways: 0, total: null, bytes: 0 });
       const res = await post(url, dataQuery(area), AbortSignal.timeout(90000));
       const reader = res.body.getReader();
