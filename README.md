@@ -143,7 +143,7 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [x] src/world/optimizer.js: merge by material signature + vertex colors, indexed merge, 400 m chunks (measured: 5,840 -> 603 draw calls at 1,764 buildings)
 - [x] src/assets/facade.js: facade-texture windows/curtain wall/corrugated metal + per-window night lighting; all 6 building modules converted (measured: 872k -> 333k tris, 80 -> 30 MB, heap 631 -> 159 MB)
 - [x] Buildings face the nearest street (assetReplacer.js + src/world/streetIndex.js; verified on 4,000 random lots)
-- [ ] Ambient traffic on the road graph in drive mode (src/world/traffic.js)
+- [x] Ambient traffic on the road graph in drive mode (src/world/traffic.js: lane side, one-way, car following, junction waiting; 2 draw calls; 200 cars = 0.03 ms/step in Node; player collides with traffic via capsules)
 - [ ] Re-run browser e2e + stress test (tools/e2e in scratchpad, not in repo) and record numbers here
 
 ## Next ideas (unchecked = not started)

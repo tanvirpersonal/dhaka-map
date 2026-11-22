@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { world } from './scene.js';
 import { state, setMode, setStatus } from '../core/state.js';
+import { trafficCollide } from './traffic.js';
 
 const WHEEL_BASE = 2.7, MAX_SPEED = 30, MAX_REVERSE = 8, ACCEL = 11, BRAKE = 26, MAX_STEER = 0.5;
 
@@ -167,7 +168,11 @@ export function isDriving() { return !!active; }
 
 export function startDrive() {
   if (active || !state.cityData) return;
-  const resolve = makeCollider(state.cityData.buildings);
+  const resolveBuildings = makeCollider(state.cityData.buildings);
+  const resolve = (x, z, r) => {
+    const a = resolveBuildings(x, z, r), b = trafficCollide(a.x, a.z, r);
+    return { x: b.x, z: b.z, hit: a.hit || b.hit };
+  };
   const car = pickStart();
   const mesh = buildCarMesh();
   world.scene.add(mesh);
