@@ -2,6 +2,7 @@
 // Ribbon UVs: u runs across the width (0..1), v runs along the length in meters / tileLength.
 
 import * as THREE from 'three';
+import { asDecal, LAYER } from './layers.js';
 
 const KIND_COLOR = {
   primary: 0x3a3a3d, secondary: 0x47474a, residential: 0x58585b, footpath: 0xb7ab94, dirt: 0x8a7352,
@@ -72,5 +73,5 @@ export function makeStreet(road) {
   mesh.name = `street_${road.id}`;
   mesh.userData.road = road;
   mesh.userData.placeholder = true;
-  return mesh;
+  return asDecal(mesh, LAYER[road.kind] ?? LAYER.residential);
 }

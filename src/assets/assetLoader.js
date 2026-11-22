@@ -96,7 +96,7 @@ export async function getStreetMaterial(idOrKind) {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 8;
     tex.userData.shared = true;
-    const material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, side: THREE.DoubleSide });
+    const material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, side: THREE.DoubleSide, depthWrite: false });
     material.userData.shared = true;
     material.userData.tileLength = entry.tileLength;
     streetMatCache.set(entry.id, material);

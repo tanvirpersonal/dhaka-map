@@ -7,6 +7,7 @@ import { makeStreet } from './streetFactory.js';
 import { clearBaked } from './optimizer.js';
 import { makeSidewalks } from './sidewalks.js';
 import { makeProps } from './props.js';
+import { asDecal, LAYER } from './layers.js';
 import { initQuality } from './quality.js';
 
 function flatShape(footprint, y, color, name) {
@@ -41,15 +42,16 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   ground.position.set((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2);
   ground.receiveShadow = true;
   ground.name = 'ground';
+  asDecal(ground, LAYER.ground);
   root.add(ground);
   world.ground = ground;
 
   const greens = new THREE.Group(); greens.name = 'greens';
-  data.greens.forEach((g) => greens.add(flatShape(g.footprint, 0.02, 0x5f8f4a, g.id)));
+  data.greens.forEach((g) => greens.add(asDecal(flatShape(g.footprint, 0.02, 0x5f8f4a, g.id), LAYER.green)));
   root.add(greens);
 
   const water = new THREE.Group(); water.name = 'water';
-  data.water.forEach((w) => water.add(flatShape(w.footprint, 0.03, 0x3c7fb5, w.id)));
+  data.water.forEach((w) => water.add(asDecal(flatShape(w.footprint, 0.03, 0x3c7fb5, w.id), LAYER.water)));
   root.add(water);
 
   const streets = new THREE.Group(); streets.name = 'streets';

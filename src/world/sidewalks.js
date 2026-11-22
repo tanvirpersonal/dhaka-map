@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ribbonGeometry } from './streetFactory.js';
+import { asDecal, LAYER } from './layers.js';
 
 const WALK_WIDTH = 2.2;
 const WALK_Y = 0.13; // above every road kind so the curb reads clearly
@@ -51,6 +52,7 @@ export function makeSidewalks(roads) {
   const mesh = new THREE.Mesh(merged, material);
   mesh.receiveShadow = true;
   mesh.name = 'sidewalks_mesh';
+  asDecal(mesh, LAYER.sidewalk);
   const group = new THREE.Group();
   group.name = 'sidewalks';
   group.add(mesh);

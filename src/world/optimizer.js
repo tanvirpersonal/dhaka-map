@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { world } from './scene.js';
+import { isDecal } from './layers.js';
 
 const CHUNK = 200; // meters
 const EDITABLE = ['buildings', 'streets', 'sidewalks'];
@@ -39,12 +40,12 @@ function* worldGeometries(root) {
         o.getMatrixAt(i, m);
         const g = normalizeGeometry(o.geometry);
         g.applyMatrix4(m.clone().premultiply(o.matrixWorld));
-        yield { geo: g, material: o.material };
+        yield { geo: g, material: o.material, order: o.renderOrder };
       }
     } else {
       const g = normalizeGeometry(o.geometry);
       g.applyMatrix4(o.matrixWorld);
-      yield { geo: g, material: o.material };
+      yield { geo: g, material: o.material, order: o.renderOrder };
     }
   }
 }
@@ -69,11 +70,11 @@ export function bakeCity() {
     if (!group) continue;
     group.traverse((o) => { if (o.isMesh) before++; });
     const c = new THREE.Vector3();
-    for (const { geo, material } of worldGeometries(group)) {
+    for (const { geo, material, order } of worldGeometries(group)) {
       geo.computeBoundingBox();
       geo.boundingBox.getCenter(c);
-      const key = `${Math.floor(c.x / CHUNK)},${Math.floor(c.z / CHUNK)}|${material.uuid}`;
-      if (!buckets.has(key)) buckets.set(key, { material, geos: [] });
+      const key = `${Math.floor(c.x / CHUNK)},${Math.floor(c.z / CHUNK)}|${material.uuid}|${order}`;
+      if (!buckets.has(key)) buckets.set(key, { material, order, geos: [] });
       buckets.get(key).geos.push(geo);
     }
   }
@@ -81,13 +82,14 @@ export function bakeCity() {
   baked = new THREE.Group();
   baked.name = 'baked';
   let tris = 0;
-  for (const { material, geos } of buckets.values()) {
+  for (const { material, order, geos } of buckets.values()) {
     const merged = mergeGeometries(geos, false);
     geos.forEach((g) => g.dispose());
     if (!merged) continue;
     merged.computeBoundingSphere();
     const mesh = new THREE.Mesh(merged, material);
-    mesh.castShadow = true;
+    mesh.renderOrder = order;
+    mesh.castShadow = !isDecal(order);
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
     tris += merged.attributes.position.count / 3;
