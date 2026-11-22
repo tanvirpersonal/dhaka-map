@@ -35,17 +35,6 @@ async function post(url, query, signal) {
   return res;
 }
 
-/** Number of ways the query will return, or null if it can't be determined. */
-async function countWays(url, area) {
-  try {
-    const json = await (await post(url, countQuery(area), AbortSignal.timeout(20000))).json();
-    const n = parseInt(json.elements?.[0]?.tags?.ways, 10);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  } catch {
-    return null; // fall back to an indeterminate bar
-  }
-}
-
 /**
  * @param {object} area {south, west, north, east}
  * @param {(p: {phase:string, percent:number|null, ways:number, total:number|null, bytes:number}) => void} [onProgress]
@@ -56,10 +45,10 @@ export async function fetchOsm(area, onProgress = () => {}) {
   for (const url of ENDPOINTS) {
     try {
       onProgress({ phase: 'waiting', percent: null, ways: 0, total: null, bytes: 0 });
-      const total = await countWays(url, area);
-      onProgress({ phase: 'waiting', percent: total ? 0 : null, ways: 0, total, bytes: 0 });
-
-      const res = await post(url, dataQuery(area));
+      // Skip the separate count query: it doubles server round-trips and often adds
+      // several seconds of latency before the real map download even begins.
+      onProgress({ phase: 'waiting', percent: null, ways: 0, total: null, bytes: 0 });
+      const res = await post(url, dataQuery(area), AbortSignal.timeout(90000));
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       const wayRe = /"type"\s*:\s*"way"/g;
@@ -71,20 +60,16 @@ export async function fetchOsm(area, onProgress = () => {}) {
         bytes += value.length;
         text += decoder.decode(value, { stream: true });
 
-        // Count new way elements; stop before a possibly split match at the end of the buffer.
-        wayRe.lastIndex = scanFrom;
-        let m, lastEnd = scanFrom;
-        while ((m = wayRe.exec(text))) { ways++; lastEnd = wayRe.lastIndex; }
-        scanFrom = Math.max(lastEnd, text.length - 24);
-
-        const percent = total ? Math.min(99, (ways / total) * 100) : null;
-        onProgress({ phase: 'download', percent, ways, total, bytes });
+        // Stream bytes into the response buffer and keep the UI responsive.
+        // Overpass does not reliably expose a usable total size, so show an honest
+        // indeterminate progress bar instead of issuing a costly count request.
+        onProgress({ phase: 'download', percent: null, ways: 0, total: null, bytes });
       }
       text += decoder.decode();
 
       const json = JSON.parse(text);
       if (!json.elements) throw new Error('Unexpected Overpass response');
-      onProgress({ phase: 'download', percent: 100, ways: total ?? ways, total, bytes });
+      onProgress({ phase: 'download', percent: 100, ways: json.elements.length, total: json.elements.length, bytes });
       return json;
     } catch (e) {
       lastErr = e;
