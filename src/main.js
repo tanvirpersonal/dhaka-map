@@ -190,11 +190,35 @@ bus.on('time:set', async (h) => {
   $('tod-label').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 });
 
+// Ambient traffic on/off. Returns true when running afterwards.
+async function setTraffic(on) {
+  const t = await lazy('./world/traffic.js');
+  if (on && !t.isTrafficOn()) {
+    const r = t.startTraffic();
+    if (!r) setStatus('No drivable roads in this area, so no traffic.');
+  } else if (!on) {
+    t.stopTraffic();
+  }
+  state.traffic = t.isTrafficOn();
+  bus.emit('traffic:changed');
+  return state.traffic;
+}
+
+bus.on('traffic:toggle', async () => {
+  if (!state.generated) return;
+  const on = await setTraffic(!state.traffic);
+  if (on) setStatus('Traffic on: cars keep to their lane, follow one-way streets and queue at junctions.');
+});
+
+// A new/loaded city has a different road graph: stop the old traffic (the user can switch it on again).
+for (const evt of ['city:generated', 'project:loaded']) bus.on(evt, () => { if (state.traffic) setTraffic(false); });
+
 bus.on('mode:drive', async () => {
   if (!state.generated) return;
   const drive = await lazy('./world/driveMode.js');
   if (drive.isDriving()) return drive.stopDrive();
   if (state.mode === 'edit') bus.emit('mode:toggleEdit'); // leave edit mode first
+  if (!state.traffic) await setTraffic(true);              // a drive test is more useful with other cars around
   drive.startDrive();
 });
 

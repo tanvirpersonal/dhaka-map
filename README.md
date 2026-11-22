@@ -152,5 +152,6 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [ ] Rotate asset fronts to face the nearest street
 - [ ] Terrain/elevation, trees and street props (lamps, signs) as new asset categories
 - [ ] Per-street swap in edit mode (street textures from `assets/streets`)
-- [ ] Drive/walk test mode (player controller) for GTA-style games
+- [x] Drive test mode with ambient traffic (done). Walk mode (on-foot player controller) still open
+- [ ] On-foot walk mode (player controller) for GTA-style games
 - [ ] GitHub Pages deploy note + live link

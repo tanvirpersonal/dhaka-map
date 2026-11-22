@@ -11,6 +11,7 @@ export function initToolbar() {
   $('btn-edit').onclick = () => bus.emit('mode:toggleEdit');
   $('btn-export').onclick = () => bus.emit('export:glb');
   $('btn-drive').onclick = () => bus.emit('mode:drive');
+  $('btn-traffic').onclick = () => bus.emit('traffic:toggle');
   const tod = $('tod');
   tod.oninput = () => bus.emit('time:set', parseFloat(tod.value));
   $('btn-gamedata').onclick = () => bus.emit('export:gamedata');
@@ -32,6 +33,8 @@ export function initToolbar() {
     $('btn-export').disabled = !state.generated;
     $('btn-gamedata').disabled = !state.generated;
     $('btn-drive').disabled = !state.generated;
+    $('btn-traffic').disabled = !state.generated;
+    $('btn-traffic').classList.toggle('active', state.traffic);
     $('btn-drive').classList.toggle('active', state.mode === 'drive');
     $('btn-save').disabled = !state.generated;
     $('btn-edit').classList.toggle('active', state.mode === 'edit');
@@ -40,7 +43,7 @@ export function initToolbar() {
     $('btn-build').classList.toggle('primary', state.generated && !state.built);
   };
 
-  ['area:selected', 'city:generated', 'city:built', 'mode:changed', 'view:map', 'project:loaded']
+  ['area:selected', 'city:generated', 'city:built', 'mode:changed', 'view:map', 'project:loaded', 'traffic:changed']
     .forEach((evt) => bus.on(evt, refresh));
   refresh();
 }

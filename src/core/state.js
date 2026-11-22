@@ -9,6 +9,7 @@ export const state = {
   selectedBuildingId: null,
   // buildingId -> assetId override chosen by the user (persisted in saves)
   overrides: {},
+  traffic: false,        // ambient traffic running (world/traffic.js)
 };
 
 const listeners = new Map();
