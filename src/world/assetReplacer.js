@@ -15,9 +15,10 @@ import { state } from '../core/state.js';
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 /** Replace every placeholder in the current city. */
-export async function buildCity(data, overrides = {}) {
+export async function buildCity(data, overrides = {}, onProgress = () => {}) {
   const assets = await listBuildingAssets();
 
+  onProgress(0, 'streets');
   await applyStreetTextures();
 
   const group = getGroup('buildings');
@@ -35,8 +36,9 @@ export async function buildCity(data, overrides = {}) {
         console.warn(`Asset ${assetId} failed for ${b.id}, keeping box`, e);
       }
     }
-    if (i % 40 === 39) await tick();
+    if (i % 40 === 39) { onProgress((i + 1) / targets.length, 'buildings'); await tick(); }
   }
+  onProgress(1, 'buildings');
 }
 
 async function applyStreetTextures() {

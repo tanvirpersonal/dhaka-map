@@ -111,7 +111,7 @@ Asset modules are JS files exporting `meta` + `build(THREE, opts)` (procedural, 
 - [x] Loader bar with percent (index.html, css/style.css, `setLoaderProgress` in state.js)
 - [x] Real download % in `src/data/overpass.js`: count query first, then count streamed ways (percent = ways seen / total ways)
 - [x] Parse = indeterminate bar, generate = % by buildings; wired in `src/main.js` + `cityGenerator.js`
-- [ ] Add progress to Build City (asset replacement)
+- [x] Add progress to Build City (asset replacement)
 
 ## Upgrade roadmap: performance + GTA-ready map (Phases 7-9)
 

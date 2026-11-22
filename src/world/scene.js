@@ -9,6 +9,7 @@ export const world = {
   cityRoot: null,     // Group holding everything generated for the current city
   ground: null,
   onFrame: new Set(), // callbacks (dt) run every frame
+  paused: false,      // true while the loader overlay is up: skip rendering so heavy builds run at full speed
 };
 
 export function initScene(canvas) {
@@ -61,8 +62,12 @@ export function initScene(canvas) {
   resize();
 
   const clock = new THREE.Clock();
+  bus.on('loader:show', () => { world.paused = true; });
+  bus.on('loader:hide', () => { world.paused = false; });
+
   renderer.setAnimationLoop(() => {
-    const dt = clock.getDelta();
+    const dt = clock.getDelta(); // always read, so the first frame after a pause gets a normal dt
+    if (world.paused) return;
     controls.update();
     world.onFrame.forEach((fn) => fn(dt));
     renderer.render(scene, camera);

@@ -136,7 +136,10 @@ bus.on('city:build', async () => {
     const { setBaked } = await lazy('./world/optimizer.js');
     setBaked(false); // build into the editable objects, then re-bake
     const { buildCity } = await lazy('./world/assetReplacer.js');
-    await buildCity(state.cityData, state.overrides);
+    await buildCity(state.cityData, state.overrides, (frac, what) => {
+      document.getElementById('loader-text').textContent = what === 'streets' ? 'Texturing streets…' : 'Placing building modules…';
+      setLoaderProgress(frac * 100, what === 'buildings' ? `${Math.round(frac * state.cityData.buildings.length).toLocaleString()} / ${state.cityData.buildings.length.toLocaleString()} buildings` : '');
+    });
     state.built = true;
     const stats = await bake();
     setStatus(`City built with asset modules (${stats.drawCallsAfter} draw calls). Use Edit Mode to swap buildings.`);

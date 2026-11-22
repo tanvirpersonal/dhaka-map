@@ -42,6 +42,7 @@ export function showLoader(text) {
   document.getElementById('loader-text').textContent = text || 'Working…';
   setLoaderProgress(null, '');
   el.classList.remove('hidden');
+  bus.emit('loader:show'); // scene.js pauses rendering while heavy work runs behind the overlay
 }
 
 /**
@@ -67,4 +68,5 @@ export function setLoaderProgress(percent, detail = '') {
 
 export function hideLoader() {
   document.getElementById('loader')?.classList.add('hidden');
+  bus.emit('loader:hide');
 }
