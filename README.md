@@ -150,6 +150,19 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
   - draw calls per frame: 610 without traffic, 612 with 200 cars (cars cost 2 draw calls, ~5k tris); traffic simulation 0.047 ms per step in the browser
   - frame times are not reported: the test browser uses software rendering (about 1 fps), so judge FPS on real hardware
 
+## Fast, reliable map download (ported from the `gpt-1` branch + tightened)
+
+`src/data/overpass.js`. The `gpt-1` branch only changed this file (commits 768bf2a, f573a99); `main` has tiling + cache that gpt-1 predates, so the ideas were ported by hand instead of merging.
+
+- [x] From gpt-1: retries with exponential backoff and `Retry-After` for busy answers (408/429/5xx), per-attempt timeout, `remark` check (Overpass answers HTTP 200 with a remark when a query timed out), longer server-side timeout (90 s), Asia mirror `ovp.dresel.systems/api-as` first (nearby, sends CORS headers)
+- [x] Server order by region: Asia mirror first for South/SE/East Asia, `overpass-api.de` first elsewhere; the last server that worked is remembered (localStorage `overpassBestEndpoint`) and tried first next time. A multi-tile area pays for a dead server only once
+- [x] Faster failover than gpt-1: a timeout, stalled download (45 s without data), network error or `remark` moves to the next server immediately instead of retrying the same one 3 times; whole server list is tried twice before giving up
+- [x] The count query (for the percentage) now runs IN PARALLEL with the data request and is sent second, so it can never delay the download. If it fails or is rejected, the bar shows MB instead of a percentage. (Branch `2` removed the count entirely; this keeps the percentage without the extra wait)
+- [x] Loader shows what is happening: "Contacting…", "server is busy (503), retrying in 2 s…", "Trying another server: …"
+- [x] Tests: `node tools/test/overpass-test.mjs` (14 offline tests against a fake Overpass server: busy, Retry-After, hung, dead, stalled, remark, slow/rejected count, remembered server, region order, multi-tile) and `tools/e2e/download-e2e.js` (11 real-browser checks)
+- [ ] Not measured: real download speed. This sandbox cannot reach Overpass, so test on your network (Dhaka -> Asia mirror) and check the browser Network tab
+- [ ] Candidate for later: smaller Overpass output (`out tags geom` for buildings, nodes only for roads) once it can be verified against a live server
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.

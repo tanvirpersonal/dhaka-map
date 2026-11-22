@@ -57,13 +57,22 @@ async function boot({ span = 0.01, port = 8765, out, viewport = { width: 1280, h
     return route.fulfill({ status: 404, body: 'nf' });
   });
   await ctx.route('https://*.tile.openstreetmap.org/**', r => r.fulfill({ status: 200, contentType: 'image/png', body: PNG }));
-  const stats = { overpassCalls: 0 };
-  await ctx.route('https://overpass*/**', (route) => {
+  // Overpass mock for ALL server hosts. stats.behave(host, kind, n) can return 'ok' (default), '503', or 'abort'
+  // (n = how many data/count requests this host has seen so far). stats.log records every request.
+  const stats = { overpassCalls: 0, log: [], seen: {}, behave: () => 'ok' };
+  await ctx.route(/\/interpreter$/, (route) => {
     stats.overpassCalls++;
+    const host = new URL(route.request().url()).host;
     const body = decodeURIComponent(route.request().postData() || '');
+    const kind = body.includes('out count') ? 'count' : 'data';
+    const key = host + '|' + kind; stats.seen[key] = (stats.seen[key] || 0) + 1;
+    stats.log.push({ host, kind });
     const h = { 'access-control-allow-origin': '*' };
+    const how = stats.behave(host, kind, stats.seen[key]);
+    if (how === 'abort') return route.abort('failed');
+    if (how === '503') return route.fulfill({ status: 503, headers: h, body: 'busy' });
     // tiles: return everything for whichever bbox (dedup handles overlaps)
-    if (body.includes('out count')) return route.fulfill({ status: 200, contentType: 'application/json', headers: h, body: JSON.stringify({ elements: [{ type: 'count', id: 0, tags: { ways: String(ELS.length) } }] }) });
+    if (kind === 'count') return route.fulfill({ status: 200, contentType: 'application/json', headers: h, body: JSON.stringify({ elements: [{ type: 'count', id: 0, tags: { ways: String(ELS.length) } }] }) });
     return route.fulfill({ status: 200, contentType: 'application/json', headers: h, body: JSON.stringify({ elements: ELS }) });
   });
   const status = () => page.locator('#status').innerText();

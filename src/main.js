@@ -88,8 +88,10 @@ bus.on('city:generate', async () => {
       raw = await fetchOsmTiled(state.area, (p) => {
         const mb = (p.bytes / 1048576).toFixed(1);
         const tileNote = p.tiles > 1 ? `tile ${p.tile}/${p.tiles} · ` : '';
-        if (p.phase === 'waiting' && p.tiles <= 1) {
-          setLoaderProgress(null, p.total ? `${p.total.toLocaleString()} map items found, waiting for server…` : 'Waiting for server…');
+        if (p.phase === 'waiting') {
+          // The downloader says what it is doing: contacting, server busy (retrying), switching to another server.
+          document.getElementById('loader-text').textContent = 'Contacting map server…';
+          setLoaderProgress(p.tiles > 1 ? p.percent : null, `${tileNote}${p.note || 'Waiting for server…'}`);
           return;
         }
         document.getElementById('loader-text').textContent = 'Downloading map data…';
