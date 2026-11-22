@@ -1,5 +1,6 @@
 // Small pitched-roof house. Fits any lot width x depth.
-import { box, mat, windows, gableRoof, rng } from '../../../src/assets/moduleKit.js';
+import { box, mat, gableRoof, rng } from '../../../src/assets/moduleKit.js';
+import { facadeBox } from '../../../src/assets/facade.js';
 
 export const meta = { id: 'house_small', name: 'Small House' };
 
@@ -13,14 +14,12 @@ export function build(THREE, { width, depth, height, levels = 2, seed = 1 }) {
   const roofRise = Math.min(2.6, Math.max(1.2, d * 0.28));
   const wallH = Math.max(2.6, height - roofRise);
 
-  g.add(box(THREE, w, wallH, d, mat(THREE, WALLS[Math.floor(r() * WALLS.length)])));
+  g.add(facadeBox(THREE, w, wallH, d, { type: 'window', color: WALLS[Math.floor(r() * WALLS.length)], floors: Math.max(1, Math.min(levels, 2)), seed: r() }));
   const roof = gableRoof(THREE, w + 0.6, d + 0.6, roofRise, mat(THREE, ROOFS[Math.floor(r() * ROOFS.length)]), wallH);
   g.add(roof);
 
   // Door on the front.
   g.add(box(THREE, 1.0, 2.1, 0.12, mat(THREE, 0x5a3a24), (r() - 0.5) * (w * 0.4), 0, d / 2 + 0.05));
 
-  windows(THREE, g, { width: w, depth: d, height: wallH, levels: Math.max(1, Math.min(levels, 2)), face: 'front' });
-  windows(THREE, g, { width: w, depth: d, height: wallH, levels: Math.max(1, Math.min(levels, 2)), face: 'back' });
   return g;
 }

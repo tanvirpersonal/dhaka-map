@@ -1,5 +1,6 @@
 // Mid-rise apartment block with balconies, a ground-floor plinth and a flat roof with a stair core.
-import { box, mat, allWindows, rng } from '../../../src/assets/moduleKit.js';
+import { box, mat, rng } from '../../../src/assets/moduleKit.js';
+import { facadeBox } from '../../../src/assets/facade.js';
 
 export const meta = { id: 'apartment_block', name: 'Apartment Block' };
 
@@ -9,10 +10,11 @@ export function build(THREE, { width, depth, height, levels = 5, seed = 1 }) {
   const r = rng(seed);
   const g = new THREE.Group();
   const w = Math.max(5, width), d = Math.max(5, depth);
-  const wall = mat(THREE, WALLS[Math.floor(r() * WALLS.length)]);
+  const tint = WALLS[Math.floor(r() * WALLS.length)];
+  const wall = mat(THREE, tint);
   const plinthH = 1.0;
 
-  g.add(box(THREE, w, height, d, wall));
+  g.add(facadeBox(THREE, w, height, d, { type: 'window', color: tint, floors: Math.max(2, levels), seed: r() }));
   g.add(box(THREE, w + 0.2, plinthH, d + 0.2, mat(THREE, 0x8c8479)));
 
   // Roof slab, parapet and stair/water-tank core.
@@ -20,8 +22,6 @@ export function build(THREE, { width, depth, height, levels = 5, seed = 1 }) {
   const core = box(THREE, Math.min(4, w * 0.3), 2.4, Math.min(4, d * 0.3), wall, (r() - 0.5) * w * 0.3, height + 0.3, (r() - 0.5) * d * 0.3);
   g.add(core);
   g.add(box(THREE, 1.6, 1.6, 1.6, mat(THREE, 0x35506b, { roughness: 0.5 }), w * 0.28, height + 0.3, -d * 0.25));
-
-  allWindows(THREE, g, { width: w, depth: d, height, levels, baseY: plinthH + 0.8, winW: 1.0, winH: 1.3 });
 
   // Balconies on the front facade, one slab per floor.
   const floors = Math.max(1, levels);

@@ -1,5 +1,6 @@
 // Low commercial row: shopfronts with awnings on the ground floor, offices/flats above.
-import { box, mat, windows, rng } from '../../../src/assets/moduleKit.js';
+import { box, mat, rng } from '../../../src/assets/moduleKit.js';
+import { facadeBox } from '../../../src/assets/facade.js';
 
 export const meta = { id: 'shop_row', name: 'Shop Row' };
 
@@ -12,7 +13,7 @@ export function build(THREE, { width, depth, height, levels = 2, seed = 1 }) {
   const w = Math.max(4, width), d = Math.max(4, depth);
   const groundH = Math.min(4, Math.max(3, height * 0.45));
 
-  g.add(box(THREE, w, height, d, mat(THREE, WALLS[Math.floor(r() * WALLS.length)])));
+  g.add(facadeBox(THREE, w, height, d, { type: 'window', color: WALLS[Math.floor(r() * WALLS.length)], floors: Math.max(1, levels), seed: r() }));
   g.add(box(THREE, w + 0.3, 0.35, d + 0.3, mat(THREE, 0x8c8a85), 0, height, 0)); // roof cap
 
   // Ground-floor shopfronts, each with a glass panel, door and awning.
@@ -25,12 +26,5 @@ export function build(THREE, { width, depth, height, levels = 2, seed = 1 }) {
     g.add(box(THREE, sw - 0.4, 0.12, 1.3, mat(THREE, AWNING[Math.floor(r() * AWNING.length)]), x, groundH - 0.3, d / 2 + 0.65));
   }
 
-  // Upper floors: window rows above the shopfront band.
-  if (height > groundH + 2.5) {
-    windows(THREE, g, { width: w, depth: d, height, levels: Math.max(1, levels - 1),
-      face: 'front', baseY: groundH + 0.4, topMargin: 0.3 });
-    windows(THREE, g, { width: w, depth: d, height, levels: Math.max(1, levels - 1),
-      face: 'back', baseY: groundH + 0.4, topMargin: 0.3 });
-  }
   return g;
 }

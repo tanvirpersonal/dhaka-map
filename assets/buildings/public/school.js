@@ -1,5 +1,6 @@
 // School / public building: wide brick block, entrance portico with pillars, flat roof and flagpole.
-import { box, mat, allWindows, rng } from '../../../src/assets/moduleKit.js';
+import { box, mat, rng } from '../../../src/assets/moduleKit.js';
+import { facadeBox } from '../../../src/assets/facade.js';
 
 export const meta = { id: 'school', name: 'School / Public Building' };
 
@@ -9,13 +10,9 @@ export function build(THREE, { width, depth, height, levels = 3, seed = 1 }) {
   const r = rng(seed);
   const g = new THREE.Group();
   const w = Math.max(8, width), d = Math.max(6, depth);
-  const wall = mat(THREE, BRICK[Math.floor(r() * BRICK.length)], { roughness: 0.9 });
-
-  g.add(box(THREE, w, height, d, wall));
+  g.add(facadeBox(THREE, w, height, d, { type: 'window', color: BRICK[Math.floor(r() * BRICK.length)], floors: Math.max(1, levels), seed: r() }));
   g.add(box(THREE, w + 0.4, 0.4, d + 0.4, mat(THREE, 0xd8d4cc), 0, height, 0));        // roof cornice
   g.add(box(THREE, w + 0.2, 0.8, d + 0.2, mat(THREE, 0x9b968c), 0, 0, 0));            // plinth
-
-  allWindows(THREE, g, { width: w, depth: d, height, levels, baseY: 1.4, winW: 1.4, winH: 1.5, color: 0x6a8fb0 });
 
   // Entrance portico: slab + pillars + door.
   const pw = Math.min(8, w * 0.3);
