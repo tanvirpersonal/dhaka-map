@@ -112,6 +112,8 @@ export function stepCar(c, inp, dt, collide) {
 // ---------- scene part ----------
 
 let active = null; // { car, input, cleanup[] }
+const CAMERA_MODES = ['chase', 'cockpit', 'hood'];
+const CAMERA_LABELS = { chase: 'CHASE', cockpit: 'COCKPIT', hood: 'HOOD' };
 const input = { up: false, down: false, left: false, right: false, brake: false };
 
 function buildCarMesh() {
@@ -173,9 +175,14 @@ export function startDrive() {
   world.scene.add(mesh);
   world.controls.enabled = false;
 
+  let cameraMode = 'chase';
   const keyMap = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'brake' };
   const onKey = (v) => (e) => {
     if (e.code === 'Escape' && v) return stopDrive();
+    if (e.code === 'KeyC' && v) { cameraMode = CAMERA_MODES[(CAMERA_MODES.indexOf(cameraMode) + 1) % CAMERA_MODES.length]; return; }
+    if (e.code === 'Digit1' && v) { cameraMode = 'chase'; return; }
+    if (e.code === 'Digit2' && v) { cameraMode = 'cockpit'; return; }
+    if (e.code === 'Digit3' && v) { cameraMode = 'hood'; return; }
     const k = keyMap[e.code];
     if (k) { input[k] = v; e.preventDefault(); }
   };
@@ -184,6 +191,14 @@ export function startDrive() {
   window.addEventListener('keyup', ku);
   const pad = touchPad(stopDrive);
   const speedEl = pad.querySelector('#drive-speed');
+  const hud = pad.querySelector('.drive-hud');
+  const previousFov = world.camera.fov;
+  const raycaster = new THREE.Raycaster();
+  const rayOrigin = new THREE.Vector3();
+  const rayDirection = new THREE.Vector3();
+  const cameraTarget = new THREE.Vector3();
+  let cameraCheckTimer = 0;
+  let safeChaseDistance = 10.5;
 
   const previousCamera = { position: world.camera.position.clone(), target: world.controls.target.clone(), zoom: world.camera.zoom };
   const camPos = new THREE.Vector3();
@@ -207,14 +222,39 @@ export function startDrive() {
     const ease = 1 - Math.exp(-3.8 * dt);
     cameraDistance = THREE.MathUtils.lerp(cameraDistance, 9.5 + speed01 * 5.5, ease);
     cameraHeight = THREE.MathUtils.lerp(cameraHeight, 4.8 + speed01 * 2.2, ease);
-    desiredPos.set(car.x - fx * cameraDistance, 0.05 + cameraHeight, car.z - fz * cameraDistance);
-    const lead = 3.2 + speed01 * 3.5;
-    desiredLook.set(car.x + fx * lead, 1.05 + speed01 * 0.35, car.z + fz * lead);
-    camPos.lerp(desiredPos, 1 - Math.exp(-5.5 * dt));
-    look.lerp(desiredLook, 1 - Math.exp(-7.5 * dt));
+
+    if (cameraMode === 'chase') {
+      cameraCheckTimer -= dt;
+      if (cameraCheckTimer <= 0) {
+        cameraCheckTimer = 0.08;
+        rayOrigin.set(car.x, 1.55, car.z);
+        rayDirection.set(-fx, 0.16, -fz).normalize();
+        raycaster.set(rayOrigin, rayDirection);
+        raycaster.far = cameraDistance;
+        const hits = raycaster.intersectObjects(world.cityRoot.children, true);
+        safeChaseDistance = hits.length ? Math.max(2.8, hits[0].distance - 0.65) : cameraDistance;
+      }
+      desiredPos.set(car.x - fx * Math.min(cameraDistance, safeChaseDistance), 0.05 + cameraHeight, car.z - fz * Math.min(cameraDistance, safeChaseDistance));
+      desiredLook.set(car.x + fx * (3.2 + speed01 * 3.5), 1.05 + speed01 * 0.35, car.z + fz * (3.2 + speed01 * 3.5));
+      camPos.lerp(desiredPos, 1 - Math.exp(-6.5 * dt));
+      look.lerp(desiredLook, 1 - Math.exp(-7.5 * dt));
+    } else {
+      // Camera positions are car-local: +Z is forward, +Y is up.
+      const local = cameraMode === 'cockpit'
+        ? new THREE.Vector3(0, 1.58, 0.05)
+        : new THREE.Vector3(0, 1.18, 1.35);
+      const offset = local.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), car.heading);
+      desiredPos.set(car.x + offset.x, 0.05 + offset.y, car.z + offset.z);
+      desiredLook.set(car.x + fx * (cameraMode === 'cockpit' ? 24 : 35), 1.05, car.z + fz * (cameraMode === 'cockpit' ? 24 : 35));
+      camPos.lerp(desiredPos, 1 - Math.exp(-12 * dt));
+      look.lerp(desiredLook, 1 - Math.exp(-12 * dt));
+    }
     world.camera.position.copy(camPos);
     world.camera.lookAt(look);
-    speedEl.textContent = Math.abs(Math.round(car.speed * 3.6));
+    const targetFov = cameraMode === 'chase' ? 55 + speed01 * 9 : 68;
+    world.camera.fov = THREE.MathUtils.lerp(world.camera.fov, targetFov, 1 - Math.exp(-4 * dt));
+    world.camera.updateProjectionMatrix();
+    hud.innerHTML = `<b id="drive-speed">${Math.abs(Math.round(car.speed * 3.6))}</b> km/h <span class="drive-camera">${CAMERA_LABELS[cameraMode]} · C</span>`;
   };
   world.onFrame.add(frame);
 
@@ -223,10 +263,10 @@ export function startDrive() {
     cleanup: [() => world.onFrame.delete(frame), () => window.removeEventListener('keydown', kd),
       () => window.removeEventListener('keyup', ku), () => pad.remove(),
       () => { world.scene.remove(mesh); mesh.traverse((o) => { o.geometry?.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); }); },
-      () => { world.camera.position.copy(previousCamera.position); world.camera.zoom = previousCamera.zoom; world.camera.updateProjectionMatrix(); world.controls.target.copy(previousCamera.target); world.controls.enabled = true; world.controls.update(); }],
+      () => { world.camera.position.copy(previousCamera.position); world.camera.fov = previousFov; world.camera.zoom = previousCamera.zoom; world.camera.updateProjectionMatrix(); world.controls.target.copy(previousCamera.target); world.controls.enabled = true; world.controls.update(); }],
   };
   setMode('drive');
-  setStatus('Driving: W/A/S/D or arrows, Space = handbrake, Esc = exit.');
+  setStatus('Drive: WASD/arrows · C or 1/2/3 = camera · Space = handbrake · Esc = exit.');
 }
 
 export function stopDrive() {
