@@ -185,15 +185,28 @@ export function startDrive() {
   const pad = touchPad(stopDrive);
   const speedEl = pad.querySelector('#drive-speed');
 
-  const camPos = new THREE.Vector3(), look = new THREE.Vector3();
+  const previousCamera = { position: world.camera.position.clone(), target: world.controls.target.clone(), zoom: world.camera.zoom };
+  const camPos = world.camera.position.clone();
+  const look = new THREE.Vector3();
+  const desiredPos = new THREE.Vector3();
+  const desiredLook = new THREE.Vector3();
+  let cameraDistance = 10.5, cameraHeight = 5.2;
   const frame = (dt) => {
-    stepCar(car, input, Math.min(dt, 0.05), resolve);
+    dt = Math.min(dt, 0.05);
+    stepCar(car, input, dt, resolve);
     mesh.position.set(car.x, 0.05, car.z);
     mesh.rotation.y = car.heading;
     const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
-    camPos.set(car.x - fx * 9, 4.6, car.z - fz * 9);
-    world.camera.position.lerp(camPos, Math.min(1, 6 * dt));
-    look.set(car.x + fx * 4, 1.2, car.z + fz * 4);
+    const speed01 = THREE.MathUtils.clamp(Math.abs(car.speed) / MAX_SPEED, 0, 1);
+    const ease = 1 - Math.exp(-3.8 * dt);
+    cameraDistance = THREE.MathUtils.lerp(cameraDistance, 9.5 + speed01 * 5.5, ease);
+    cameraHeight = THREE.MathUtils.lerp(cameraHeight, 4.8 + speed01 * 2.2, ease);
+    desiredPos.set(car.x - fx * cameraDistance, 0.05 + cameraHeight, car.z - fz * cameraDistance);
+    const lead = 3.2 + speed01 * 3.5;
+    desiredLook.set(car.x + fx * lead, 1.05 + speed01 * 0.35, car.z + fz * lead);
+    camPos.lerp(desiredPos, 1 - Math.exp(-5.5 * dt));
+    look.lerp(desiredLook, 1 - Math.exp(-7.5 * dt));
+    world.camera.position.copy(camPos);
     world.camera.lookAt(look);
     speedEl.textContent = Math.abs(Math.round(car.speed * 3.6));
   };
@@ -203,7 +216,8 @@ export function startDrive() {
     prevMode: state.mode,
     cleanup: [() => world.onFrame.delete(frame), () => window.removeEventListener('keydown', kd),
       () => window.removeEventListener('keyup', ku), () => pad.remove(),
-      () => { world.scene.remove(mesh); mesh.traverse((o) => o.geometry?.dispose()); }],
+      () => { world.scene.remove(mesh); mesh.traverse((o) => { o.geometry?.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); }); },
+      () => { world.camera.position.copy(previousCamera.position); world.camera.zoom = previousCamera.zoom; world.camera.updateProjectionMatrix(); world.controls.target.copy(previousCamera.target); world.controls.enabled = true; world.controls.update(); }],
   };
   setMode('drive');
   setStatus('Driving: W/A/S/D or arrows, Space = handbrake, Esc = exit.');
@@ -213,10 +227,7 @@ export function stopDrive() {
   if (!active) return;
   active.cleanup.forEach((fn) => fn());
   Object.keys(input).forEach((k) => { input[k] = false; });
-  world.controls.enabled = true;
-  const t = world.controls.target;
-  world.camera.position.set(t.x + 160, 200, t.z + 220); // back to an overview of the city
-  world.controls.update();
+  // Restore the exact pre-drive camera view via the active session cleanup.
   setMode('city');
   setStatus('Drive ended.');
   active = null;
