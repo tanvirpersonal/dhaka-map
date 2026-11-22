@@ -180,6 +180,29 @@ bus.on('export:glb', async () => {
   }
 });
 
+bus.on('time:set', async (h) => {
+  const { setTimeOfDay } = await lazy('./world/timeOfDay.js');
+  setTimeOfDay(h);
+  const hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+  $('tod-label').textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+});
+
+bus.on('mode:drive', async () => {
+  if (!state.generated) return;
+  const drive = await lazy('./world/driveMode.js');
+  if (drive.isDriving()) return drive.stopDrive();
+  if (state.mode === 'edit') bus.emit('mode:toggleEdit'); // leave edit mode first
+  drive.startDrive();
+});
+
+// Once the first city exists: minimap + time of day (kept lazy so the map screen loads fast).
+bus.on('city:generated', async () => {
+  const { initTimeOfDay, setTimeOfDay } = await lazy('./world/timeOfDay.js');
+  if (!initTimeOfDay.done) { initTimeOfDay(); initTimeOfDay.done = true; }
+  setTimeOfDay(parseFloat($('tod').value));
+  (await lazy('./ui/minimap.js')).initMinimap();
+});
+
 bus.on('export:gamedata', async () => {
   try {
     showLoader('Building game data…');
