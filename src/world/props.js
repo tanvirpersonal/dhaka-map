@@ -83,15 +83,16 @@ function roadClearanceIndex(roads) {
         for (let z = Math.floor(minZ / cell); z <= Math.floor(maxZ / cell); z++) {
           const k = `${x},${z}`;
           if (!map.has(k)) map.set(k, []);
-          map.get(k).push({ a, b, clearance: half + 4.5 });
+          map.get(k).push({ a, b, road, clearance: half + 4.5 });
         }
       }
     }
   }
-  return (x, z) => {
+  return (x, z, exclude = null) => {
     const cx = Math.floor(x / cell), cz = Math.floor(z / cell);
     for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gz = cz - 1; gz <= cz + 1; gz++) {
       for (const seg of map.get(`${gx},${gz}`) || []) {
+        if (seg.road === exclude) continue;
         const dx = seg.b[0] - seg.a[0], dz = seg.b[1] - seg.a[1];
         const t = Math.max(0, Math.min(1, ((x - seg.a[0]) * dx + (z - seg.a[1]) * dz) / (dx * dx + dz * dz || 1)));
         if (Math.hypot(x - seg.a[0] - dx * t, z - seg.a[1] - dz * t) < seg.clearance) return false;
@@ -141,6 +142,8 @@ export function makeProps(data) {
   group.name = 'props';
   const inBuilding = buildingIndex(data.buildings);
   const roadClear = roadClearanceIndex(data.roads);
+  const waterBounds = data.water.map((w) => ({ w, bb: boundsOf(w.footprint) }));
+  const inWater = (x, z) => waterBounds.some(({ w, bb }) => x >= bb.minX - 3 && x <= bb.maxX + 3 && z >= bb.minZ - 3 && z <= bb.maxZ + 3 && pointInPolygon(x, z, w.footprint));
   const r = rng(hashString(`${data.area.south},${data.area.west}`));
 
   // Street lamps: alternate sides along primary/secondary/residential roads.
@@ -155,13 +158,16 @@ export function makeProps(data) {
     for (const p of sampleAlong(road.points, spacing, r() * spacing)) {
       side = -side;
       const x = p.x - p.dz * off * side, z = p.z + p.dx * off * side;
-      if (inBuilding(x, z)) continue;
+      if (inBuilding(x, z) || !roadClear(x, z, road) || inWater(x, z)) continue;
       // Arm points toward the road: rotate local +x to face the road center.
       q.setFromAxisAngle(up, Math.atan2(side * p.dx, side * p.dz));
       lamps.push(m4.clone().compose(new THREE.Vector3(x, 0.13, z), q.clone(), new THREE.Vector3(1, 1, 1)));
     }
   }
-  if (lamps.length) lampMeshes(lamps).forEach((m) => group.add(m));
+  const lampGroup = new THREE.Group(); lampGroup.name = 'lamps';
+  const treeGroup = new THREE.Group(); treeGroup.name = 'trees';
+  group.add(lampGroup, treeGroup);
+  if (lamps.length) lampMeshes(lamps).forEach((m) => lampGroup.add(m));
 
   // Trees: along residential/secondary roads (outer side of the sidewalk) and inside green areas.
   const trees = [];
@@ -179,7 +185,7 @@ export function makeProps(data) {
     for (const side of [1, -1]) {
       const line = offsetPolyline(road.points, side * (road.width / 2 + 6.5));
       for (const p of sampleAlong(line, TREE_SPACING, r() * TREE_SPACING)) {
-        if (r() < 0.45 || inBuilding(p.x, p.z, 3) || !roadClear(p.x, p.z)) continue;
+        if (r() < 0.45 || inBuilding(p.x, p.z, 3) || !roadClear(p.x, p.z) || inWater(p.x, p.z)) continue;
         addTree(p.x, p.z);
       }
     }
@@ -190,10 +196,10 @@ export function makeProps(data) {
     const target = Math.min(120, Math.floor(area / 180));
     for (let i = 0, tries = 0; i < target && tries < target * 6; tries++) {
       const x = bb.minX + r() * (bb.maxX - bb.minX), z = bb.minZ + r() * (bb.maxZ - bb.minZ);
-      if (pointInPolygon(x, z, g.footprint) && !inBuilding(x, z, 3) && roadClear(x, z)) { addTree(x, z); i++; }
+      if (pointInPolygon(x, z, g.footprint) && !inBuilding(x, z, 3) && roadClear(x, z) && !inWater(x, z)) { addTree(x, z); i++; }
     }
   }
-  if (trees.length) treeMeshes(trees).forEach((m) => group.add(m));
+  if (trees.length) treeMeshes(trees).forEach((m) => treeGroup.add(m));
 
   group.userData.counts = { lamps: lamps.length, trees: trees.length };
   return group;
