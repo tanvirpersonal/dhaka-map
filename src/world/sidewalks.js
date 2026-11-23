@@ -118,12 +118,12 @@ function nearbySegments(point, index) {
 // This is the important difference from merely hiding a whole side of a road.
 function isSidewalkSampleClear(ownerRoad, point, index, junctionZones) {
   for (const zone of junctionZones) {
-    if (Math.hypot(point[0] - zone.x, point[1] - zone.z) < zone.radius + WALK_WIDTH / 2) return false;
+    if (Math.hypot(point[0] - zone.x, point[1] - zone.z) < zone.radius + WALK_WIDTH / 2 + 0.5) return false;
   }
 
   for (const { road, a, b } of nearbySegments(point, index)) {
     if (road === ownerRoad) continue;
-    const requiredClearance = (road.width || 5) / 2 + WALK_WIDTH / 2 + 0.2;
+    const requiredClearance = (road.width || 5) / 2 + WALK_WIDTH / 2 + 0.75;
     if (pointSegmentDistance(point, a, b) < requiredClearance) return false;
   }
   return true;
@@ -136,7 +136,7 @@ function makeClippedSidewalkRuns(road, side, index, junctionZones) {
   for (let i = 1; i < road.points.length; i++) {
     const a = road.points[i - 1], b = road.points[i];
     const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const steps = Math.max(1, Math.ceil(length / 2));
+    const steps = Math.max(1, Math.ceil(length / 1));
     for (let j = 0; j < steps; j++) {
       const t = j / steps;
       centerline.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
