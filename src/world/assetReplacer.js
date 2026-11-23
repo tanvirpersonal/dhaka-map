@@ -58,6 +58,8 @@ async function applyStreetTextures(roads) {
     const entry = await getStreetEntry(road.kind);
     if (!entry) continue;
     if (entry.type === 'glb') {
+      // Already applied during Generate City; avoid reloading/replacing the same road asset.
+      if (mesh.userData.streetAsset === entry.id) continue;
       const model = await createStreetModel(road, entry);
       model.position.y = mesh.position.y;
       model.renderOrder = mesh.renderOrder; // keep the road's place in the ground layer order
