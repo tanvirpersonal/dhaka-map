@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
+import { createStreetModel, getStreetEntry } from '../assets/assetLoader.js';
 import { clearBaked } from './optimizer.js';
 // Versioned URL bypasses stale browser/CDN module caches after the tree-transform fix.
 import { makeProps } from './props.js?v=tree-matrix-fix-2';
@@ -33,9 +34,8 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   clearCity();
   const root = world.cityRoot;
   const { bounds } = data;
-  clearBuildingsFromRoads(data); // no building on a road or sidewalk (mutates data.buildings, idempotent)
+  clearBuildingsFromRoads(data);
 
-  // Ground slab slightly larger than the selected area.
   const pad = 40;
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(bounds.width + pad * 2, bounds.depth + pad * 2),
@@ -57,11 +57,29 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   data.water.forEach((w) => water.add(asDecal(flatShape(w.footprint, 0.03, 0x3c7fb5, w.id), LAYER.water)));
   root.add(water);
 
+  // Load the matching GLB road surface immediately, not only after the user presses Build City.
   const streets = new THREE.Group(); streets.name = 'streets';
-  data.roads.forEach((r) => { const m = makeStreet(r); if (m) streets.add(m); });
+  for (let i = 0; i < data.roads.length; i++) {
+    const road = data.roads[i];
+    let mesh = null;
+    try {
+      const entry = await getStreetEntry(road.kind);
+      if (entry?.type === 'glb') {
+        mesh = await createStreetModel(road, entry);
+        mesh.position.y = road.kind === 'primary' ? 0.06 : road.kind === 'secondary' ? 0.05 : 0.04;
+        mesh.userData.road = road;
+        mesh.userData.placeholder = false;
+        mesh.userData.streetAsset = entry.id;
+      }
+    } catch (error) {
+      console.warn(`Road GLB failed for ${road.id}; using procedural road surface.`, error);
+    }
+    if (!mesh) mesh = makeStreet(road);
+    if (mesh) streets.add(mesh);
+    if (i % 250 === 249) await new Promise((resolve) => setTimeout(resolve, 0));
+  }
   root.add(streets);
 
-  // Yield to the browser periodically so the loader can repaint on big areas.
   const buildings = new THREE.Group(); buildings.name = 'buildings';
   for (let i = 0; i < data.buildings.length; i++) {
     buildings.add(makeBuildingBox(data.buildings[i]));
@@ -73,9 +91,8 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   onProgress(1);
   root.add(buildings);
 
-  // Decorations must never prevent the core 3D city (roads/buildings/terrain) from rendering.
   try {
-    root.add(makeProps(data)); // instanced lamps + trees
+    root.add(makeProps(data));
   } catch (error) {
     console.warn('Street props skipped; continuing with the 3D city:', error);
     const fallbackProps = new THREE.Group();
