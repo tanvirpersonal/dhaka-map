@@ -216,3 +216,13 @@ Done and verified in a real browser: Generate / Build / Edit swap / GLB export, 
 - Registered `blender_road_asphalt` in `assets/manifest.json` as an image street asset for `primary` and `secondary` roads, with a 12 m repeat length. The existing asset loader already supports `type: "image"`, and Build City applies the manifest's last matching street asset, so no renderer rewrite was needed.
 - The source `.blend` is retained unchanged. Residential lanes, footpaths and dirt tracks keep their existing materials; the Blender texture is assigned to primary and secondary roads only.
 - Browser/WebGL visual verification is still required after GitHub Pages deploy: select an area, Generate City, then Build City and inspect primary/secondary road tiling and line orientation.
+
+
+## GLB road model integration (Nov 23, 2026)
+
+- Activated the uploaded `assets/streets/Untitled.glb` as `road_glb_segment` in `assets/manifest.json`, matching OSM `primary` and `secondary` road kinds.
+- `src/assets/assetLoader.js` now loads the GLB through Three.js GLTFLoader, caches the source scene, measures its horizontal dimensions, and creates oriented/scaled instances along each road polyline segment. The GLB's own mesh materials/textures are retained.
+- `src/world/assetReplacer.js` now swaps primary/secondary road ribbons for the GLB segment group during **Build City**. Residential lanes, footpaths, and dirt tracks continue using their existing materials.
+- Disabled the legacy `asphalt_primary`, `asphalt_secondary`, and previous `blender_road_asphalt` image entry (`enabled: false`); disabled entries are excluded from street-asset lists and matching. This prevents the older replaceable road assets from overriding the GLB.
+- The earlier `assets/streets/road_asphalt.webp` file is no longer selected; it is retained in the repo but inactive. The original `.blend` source is untouched.
+- Visual verification is pending: the GLB's axis, pivot, width/length proportions, and segment seams must be checked in a real browser after deployment. If the model's long axis or pivot differs from the assumed horizontal bounding-box layout, orientation/offset may need a small adjustment.
