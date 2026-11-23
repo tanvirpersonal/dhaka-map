@@ -60,6 +60,24 @@ const results = []; const ok = (name, pass, info = '') => { results.push([pass, 
   ok('Esc leaves drive mode', (await ev(async () => (await import('/src/core/state.js')).state.mode)) === 'city');
   ok('traffic keeps running after drive', await ev(async () => (await import('/src/core/state.js')).state.traffic));
 
+  // --- layers: each layer hides on its own, baked buildings included
+  const lay = await ev(async () => {
+    const { world } = await import('/src/world/scene.js');
+    const { LAYER_DEFS, getLayer, setLayerVisible } = await import('/src/world/layerManager.js');
+    const vis = () => world.cityRoot.getObjectByName('baked').children.filter((m) => m.visible).map((m) => m.userData.layer);
+    const all = LAYER_DEFS.filter((d) => d.id !== 'traffic').map((d) => !!getLayer(d.id));
+    const before = vis();
+    setLayerVisible('buildings', false);
+    const hid = vis(); const trees = getLayer('trees').visible;
+    setLayerVisible('trees', false); const treesOff = getLayer('trees').visible, lampsOn = getLayer('lamps').visible;
+    setLayerVisible('buildings', true); setLayerVisible('trees', true);
+    return { all, hasB: before.includes('buildings'), hidB: !hid.includes('buildings'), keepsStreets: hid.includes('streets'), trees, treesOff, lampsOn, back: vis().includes('buildings'), treesBack: getLayer('trees').visible };
+  });
+  ok('every layer exists as its own group', lay.all.every(Boolean), JSON.stringify(lay.all));
+  ok('hiding Buildings hides only baked buildings', lay.hasB && lay.hidB && lay.keepsStreets);
+  ok('hiding Trees leaves Lamps alone', lay.trees && !lay.treesOff && lay.lampsOn);
+  ok('layers can be shown again', lay.back && lay.treesBack);
+
   // --- off, then on again, then regenerate stops it
   await page.click('#btn-traffic'); await page.waitForTimeout(500);
   const off = await ev(async () => { const { world } = await import('/src/world/scene.js'); const { state } = await import('/src/core/state.js'); return { group: !!world.scene.getObjectByName('traffic'), flag: state.traffic, cbs: world.onFrame.size }; });

@@ -171,6 +171,13 @@ Checks after merge: 14/14 offline downloader tests, download e2e 11/11, traffic 
 
 - Drive camera smoothing (Nov 23): camera position now rigid to the car, only heading and chase distance are smoothed (pull in fast, ease out slow); removes jitter/snapping.
 
+## Real-city layout + layers (done, Nov 23)
+- `src/data/layout.js`: `clearBuildingsFromRoads(data)` runs at the start of generateCity. Samples each footprint, slides it off any road
+  corridor (half width + sidewalk + 0.8 m margin), shrinks it if squeezed, drops it if it would need >7 m move. Idempotent. Test: `node tools/test/layout-test.mjs`.
+- Trees/lamps: lamps now also avoid other roads; trees and lamps avoid water. Trees were already kept clear of roads and buildings.
+- `src/world/layerManager.js` + `src/ui/layersPanel.js` (toolbar **Layers** button): ground, greens, water, streets, sidewalks, buildings, trees, lamps, traffic
+  each a named group, toggle individually (baked chunks carry `userData.layer`). e2e covers it (traffic-e2e 19/19).
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.
