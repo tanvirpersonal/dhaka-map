@@ -5,7 +5,8 @@ import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
 import { clearBaked } from './optimizer.js';
-import { makeProps } from './props.js';
+// Versioned URL bypasses stale browser/CDN module caches after the tree-transform fix.
+import { makeProps } from './props.js?v=tree-matrix-fix-2';
 import { asDecal, LAYER } from './layers.js';
 import { initQuality } from './quality.js';
 import { clearBuildingsFromRoads } from '../data/layout.js';
@@ -72,7 +73,15 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   onProgress(1);
   root.add(buildings);
 
-  root.add(makeProps(data)); // instanced lamps + trees
+  // Decorations must never prevent the core 3D city (roads/buildings/terrain) from rendering.
+  try {
+    root.add(makeProps(data)); // instanced lamps + trees
+  } catch (error) {
+    console.warn('Street props skipped; continuing with the 3D city:', error);
+    const fallbackProps = new THREE.Group();
+    fallbackProps.name = 'props';
+    root.add(fallbackProps);
+  }
 
   registerCityLayers();
   frameCity(bounds);
