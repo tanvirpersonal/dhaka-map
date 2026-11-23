@@ -15,10 +15,14 @@ export const world = {
 export function initScene(canvas) {
   if (world.renderer) return world; // already initialised, just reuse
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance', stencil: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.sortObjects = true;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x9fc4e8);
@@ -38,6 +42,9 @@ export function initScene(canvas) {
   sun.position.set(300, 500, 200);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.00015;
+  sun.shadow.normalBias = 0.025;
+  sun.shadow.radius = 3;
   const sc = sun.shadow.camera;
   sc.left = -600; sc.right = 600; sc.top = 600; sc.bottom = -600; sc.near = 10; sc.far = 1500;
   scene.add(sun);

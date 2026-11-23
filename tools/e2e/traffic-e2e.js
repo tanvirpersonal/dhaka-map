@@ -47,8 +47,10 @@ const results = []; const ok = (name, pass, info = '') => { results.push([pass, 
 
   // --- drive with traffic
   await page.click('#btn-drive');
-  await h.waitStatus(/Driving/, 30000);
+  await h.waitStatus(/Drive:|Driving/, 30000);
   ok('drive mode started with traffic running', (await ev(async () => (await import('/src/core/state.js')).state.mode)) === 'drive');
+  // cycle the camera modes (chase -> cockpit -> hood -> chase) while driving; any exception shows up in browser errors
+  for (const key of ['Digit2', 'Digit3', 'KeyC', 'Digit1']) { await page.keyboard.press(key); await page.waitForTimeout(250); }
   await page.keyboard.down('ArrowUp'); await page.waitForTimeout(4000);
   const speed = await ev(() => parseInt(document.getElementById('drive-speed').textContent, 10));
   ok('player car accelerates', speed > 10, `${speed} km/h`);

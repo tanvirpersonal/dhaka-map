@@ -1,11 +1,12 @@
 // Quality presets + adaptive resolution so big cities stay smooth on phones and laptops.
 
+import * as THREE from 'three';
 import { world } from './scene.js';
 
 export const PRESETS = {
-  low:    { pixelRatio: 1,   shadows: false, shadowMap: 1024, fogNear: 250, fogFar: 1100 },
-  medium: { pixelRatio: 1.5, shadows: true,  shadowMap: 1024, fogNear: 450, fogFar: 1800 },
-  high:   { pixelRatio: 2,   shadows: true,  shadowMap: 2048, fogNear: 600, fogFar: 2600 },
+  low:    { pixelRatio: 1,   shadows: false, shadowMap: 1024, shadowRadius: 1, exposure: 1.08, fogNear: 250, fogFar: 1100 },
+  medium: { pixelRatio: 1.5, shadows: true,  shadowMap: 1536, shadowRadius: 3, exposure: 1.12, fogNear: 450, fogFar: 1800 },
+  high:   { pixelRatio: 2,   shadows: true,  shadowMap: 2048, shadowRadius: 4, exposure: 1.18, fogNear: 600, fogFar: 2600 },
 };
 
 let current = 'medium';
@@ -25,6 +26,8 @@ export function setQuality(name) {
   current = name;
   maxPixelRatio = Math.min(p.pixelRatio, window.devicePixelRatio || 1);
   world.renderer.setPixelRatio(maxPixelRatio);
+  world.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  world.renderer.toneMappingExposure = p.exposure;
   world.renderer.shadowMap.enabled = p.shadows;
   if (world.sun) {
     world.sun.castShadow = p.shadows;
@@ -33,6 +36,7 @@ export function setQuality(name) {
       world.sun.shadow.map?.dispose();
       world.sun.shadow.map = null;
     }
+    world.sun.shadow.radius = p.shadowRadius;
   }
   if (world.scene.fog) { world.scene.fog.near = p.fogNear; world.scene.fog.far = p.fogFar; }
   // Shadow toggles need materials to recompile once.

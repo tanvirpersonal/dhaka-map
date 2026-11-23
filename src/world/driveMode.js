@@ -89,11 +89,14 @@ export function stepCar(c, inp, dt, collide) {
   c.speed -= Math.sign(c.speed) * Math.min(Math.abs(c.speed), drag);
   c.speed = Math.max(-MAX_REVERSE, Math.min(MAX_SPEED, c.speed));
 
-  // Steering eases toward the target and weakens at speed.
-  const target = ((inp.left ? 1 : 0) - (inp.right ? 1 : 0)) * MAX_STEER / (1 + Math.abs(c.speed) * 0.07);
-  c.steer += (target - c.steer) * Math.min(1, 8 * dt);
+  // Progressive steering: quick at low speed, restrained and stable at high speed.
+  const speed01 = Math.min(1, Math.abs(c.speed) / MAX_SPEED);
+  const target = ((inp.left ? 1 : 0) - (inp.right ? 1 : 0)) * MAX_STEER * (1 - speed01 * 0.48);
+  c.steer += (target - c.steer) * (1 - Math.exp(-7.5 * dt));
 
-  c.heading += (c.speed / WHEEL_BASE) * Math.tan(c.steer) * dt;
+  // A little lateral grip keeps the bicycle model predictable without arcade snapping.
+  const yawRate = (c.speed / WHEEL_BASE) * Math.tan(c.steer);
+  c.heading += yawRate * dt;
   c.x += Math.sin(c.heading) * c.speed * dt;
   c.z += Math.cos(c.heading) * c.speed * dt;
 
@@ -113,20 +116,36 @@ export function stepCar(c, inp, dt, collide) {
 // ---------- scene part ----------
 
 let active = null; // { car, input, cleanup[] }
+const CAMERA_MODES = ['chase', 'cockpit', 'hood'];
+const CAMERA_LABELS = { chase: 'CHASE', cockpit: 'COCKPIT', hood: 'HOOD' };
 const input = { up: false, down: false, left: false, right: false, brake: false };
 
 function buildCarMesh() {
   const g = new THREE.Group();
+  const suspension = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.7, 4.2), new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.4, metalness: 0.3 }));
   body.position.y = 0.7;
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 2.0), new THREE.MeshStandardMaterial({ color: 0x1b2733, roughness: 0.2, metalness: 0.4 }));
   cabin.position.set(0, 1.3, -0.2);
-  g.add(body, cabin);
-  const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 12); wheelGeo.rotateZ(Math.PI / 2);
+  suspension.add(body, cabin);
+  g.add(suspension);
+
+  const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.3, 16);
+  wheelGeo.rotateZ(Math.PI / 2);
   const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-  for (const [x, z] of [[-0.95, 1.4], [0.95, 1.4], [-0.95, -1.4], [0.95, -1.4]]) {
-    const w = new THREE.Mesh(wheelGeo, wheelMat); w.position.set(x, 0.38, z); g.add(w);
+  const wheels = [];
+  for (const [x, z, front] of [[-0.95, 1.4, true], [0.95, 1.4, true], [-0.95, -1.4, false], [0.95, -1.4, false]]) {
+    const mount = new THREE.Group();
+    mount.position.set(x, 0.38, z);
+    const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+    mount.add(wheel);
+    g.add(mount);
+    wheels.push({ mount, wheel, front });
   }
+  g.userData.suspension = suspension;
+  g.userData.wheels = wheels;
+  g.userData.wheelSpin = 0;
+  g.userData.bodyRoll = 0;
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -178,9 +197,14 @@ export function startDrive() {
   world.scene.add(mesh);
   world.controls.enabled = false;
 
+  let cameraMode = 'chase';
   const keyMap = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', Space: 'brake' };
   const onKey = (v) => (e) => {
     if (e.code === 'Escape' && v) return stopDrive();
+    if (e.code === 'KeyC' && v) { cameraMode = CAMERA_MODES[(CAMERA_MODES.indexOf(cameraMode) + 1) % CAMERA_MODES.length]; return; }
+    if (e.code === 'Digit1' && v) { cameraMode = 'chase'; return; }
+    if (e.code === 'Digit2' && v) { cameraMode = 'cockpit'; return; }
+    if (e.code === 'Digit3' && v) { cameraMode = 'hood'; return; }
     const k = keyMap[e.code];
     if (k) { input[k] = v; e.preventDefault(); }
   };
@@ -188,19 +212,98 @@ export function startDrive() {
   window.addEventListener('keydown', kd);
   window.addEventListener('keyup', ku);
   const pad = touchPad(stopDrive);
+  const hud = pad.querySelector('.drive-hud');
   const speedEl = pad.querySelector('#drive-speed');
+  const cameraEl = document.createElement('span');
+  cameraEl.className = 'drive-camera';
+  cameraEl.textContent = 'CHASE · C';
+  hud.append(' km/h ', cameraEl);
+  const previousFov = world.camera.fov;
+  const raycaster = new THREE.Raycaster();
+  const rayOrigin = new THREE.Vector3();
+  const rayDirection = new THREE.Vector3();
+  let cameraCheckTimer = 0;
+  let safeChaseDistance = 10.5;
 
-  const camPos = new THREE.Vector3(), look = new THREE.Vector3();
+  const previousCamera = { position: world.camera.position.clone(), target: world.controls.target.clone(), zoom: world.camera.zoom };
+  const camPos = new THREE.Vector3();
+  const look = new THREE.Vector3();
+  const desiredPos = new THREE.Vector3();
+  const desiredLook = new THREE.Vector3();
+  let cameraDistance = 10.5, cameraHeight = 5.2;
+  let previousSpeed = 0;
+  let suspensionVelocity = 0;
+  let suspensionOffset = 0;
+  const localCameraOffset = new THREE.Vector3();
+  const upAxis = new THREE.Vector3(0, 1, 0);
+  // Start directly in the chase position instead of sweeping in from the distant city overview.
+  const startFx = Math.sin(car.heading), startFz = Math.cos(car.heading);
+  camPos.set(car.x - startFx * cameraDistance, 0.05 + cameraHeight, car.z - startFz * cameraDistance);
+  look.set(car.x + startFx * 3.2, 1.05, car.z + startFz * 3.2);
+  world.camera.position.copy(camPos);
+  world.camera.lookAt(look);
   const frame = (dt) => {
-    stepCar(car, input, Math.min(dt, 0.05), resolve);
+    dt = Math.min(dt, 0.05);
+    stepCar(car, input, dt, resolve);
     mesh.position.set(car.x, 0.05, car.z);
     mesh.rotation.y = car.heading;
+
+    // Wheel rotation follows distance travelled; front mounts steer independently.
+    const wheelData = mesh.userData.wheels;
+    mesh.userData.wheelSpin -= car.speed * dt / 0.38;
+    for (const item of wheelData) {
+      if (item.front) item.mount.rotation.y = car.steer;
+      item.wheel.rotation.x = mesh.userData.wheelSpin;
+    }
+
+    // Spring-damper suspension reacts to acceleration and steering load.
+    const longitudinalG = THREE.MathUtils.clamp((car.speed - previousSpeed) / Math.max(dt, 0.001) / 18, -1, 1);
+    previousSpeed = car.speed;
+    const lateralLoad = THREE.MathUtils.clamp(car.speed * car.speed * Math.abs(Math.tan(car.steer)) / (WHEEL_BASE * 12), 0, 0.12);
+    const springTarget = THREE.MathUtils.clamp(-longitudinalG * 0.045 - lateralLoad, -0.065, 0.065);
+    suspensionVelocity += (springTarget - suspensionOffset) * 32 * dt;
+    suspensionVelocity *= Math.exp(-8.5 * dt);
+    suspensionOffset += suspensionVelocity * dt;
+    mesh.userData.suspension.position.y = suspensionOffset;
+    const rollTarget = -Math.sign(car.steer) * lateralLoad * 0.8;
+    mesh.userData.bodyRoll = THREE.MathUtils.lerp(mesh.userData.bodyRoll, rollTarget, 1 - Math.exp(-5 * dt));
+    mesh.userData.suspension.rotation.z = mesh.userData.bodyRoll;
     const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
-    camPos.set(car.x - fx * 9, 4.6, car.z - fz * 9);
-    world.camera.position.lerp(camPos, Math.min(1, 6 * dt));
-    look.set(car.x + fx * 4, 1.2, car.z + fz * 4);
+    const speed01 = THREE.MathUtils.clamp(Math.abs(car.speed) / MAX_SPEED, 0, 1);
+    const ease = 1 - Math.exp(-3.8 * dt);
+    cameraDistance = THREE.MathUtils.lerp(cameraDistance, 9.5 + speed01 * 5.5, ease);
+    cameraHeight = THREE.MathUtils.lerp(cameraHeight, 4.8 + speed01 * 2.2, ease);
+
+    if (cameraMode === 'chase') {
+      cameraCheckTimer -= dt;
+      if (cameraCheckTimer <= 0) {
+        cameraCheckTimer = 0.08;
+        rayOrigin.set(car.x, 1.55, car.z);
+        rayDirection.set(-fx, 0.16, -fz).normalize();
+        raycaster.set(rayOrigin, rayDirection);
+        raycaster.far = cameraDistance;
+        const hits = raycaster.intersectObjects(world.cityRoot.children, true);
+        safeChaseDistance = hits.length ? Math.max(2.8, hits[0].distance - 0.65) : cameraDistance;
+      }
+      desiredPos.set(car.x - fx * Math.min(cameraDistance, safeChaseDistance), 0.05 + cameraHeight, car.z - fz * Math.min(cameraDistance, safeChaseDistance));
+      desiredLook.set(car.x + fx * (3.2 + speed01 * 3.5), 1.05 + speed01 * 0.35, car.z + fz * (3.2 + speed01 * 3.5));
+      camPos.lerp(desiredPos, 1 - Math.exp(-6.5 * dt));
+      look.lerp(desiredLook, 1 - Math.exp(-7.5 * dt));
+    } else {
+      // Camera positions are car-local: +Z is forward, +Y is up.
+      localCameraOffset.set(0, cameraMode === 'cockpit' ? 1.58 : 1.18, cameraMode === 'cockpit' ? 0.05 : 1.35).applyAxisAngle(upAxis, car.heading);
+      desiredPos.set(car.x + localCameraOffset.x, 0.05 + localCameraOffset.y, car.z + localCameraOffset.z);
+      desiredLook.set(car.x + fx * (cameraMode === 'cockpit' ? 24 : 35), 1.05, car.z + fz * (cameraMode === 'cockpit' ? 24 : 35));
+      camPos.lerp(desiredPos, 1 - Math.exp(-12 * dt));
+      look.lerp(desiredLook, 1 - Math.exp(-12 * dt));
+    }
+    world.camera.position.copy(camPos);
     world.camera.lookAt(look);
+    const targetFov = cameraMode === 'chase' ? 55 + speed01 * 9 : 68;
+    world.camera.fov = THREE.MathUtils.lerp(world.camera.fov, targetFov, 1 - Math.exp(-4 * dt));
+    world.camera.updateProjectionMatrix();
     speedEl.textContent = Math.abs(Math.round(car.speed * 3.6));
+    cameraEl.textContent = `${CAMERA_LABELS[cameraMode]} · C`;
   };
   world.onFrame.add(frame);
 
@@ -208,20 +311,18 @@ export function startDrive() {
     prevMode: state.mode,
     cleanup: [() => world.onFrame.delete(frame), () => window.removeEventListener('keydown', kd),
       () => window.removeEventListener('keyup', ku), () => pad.remove(),
-      () => { world.scene.remove(mesh); mesh.traverse((o) => o.geometry?.dispose()); }],
+      () => { world.scene.remove(mesh); mesh.traverse((o) => { o.geometry?.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose()); }); },
+      () => { world.camera.position.copy(previousCamera.position); world.camera.fov = previousFov; world.camera.zoom = previousCamera.zoom; world.camera.updateProjectionMatrix(); world.controls.target.copy(previousCamera.target); world.controls.enabled = true; world.controls.update(); }],
   };
   setMode('drive');
-  setStatus('Driving: W/A/S/D or arrows, Space = handbrake, Esc = exit.');
+  setStatus('Drive: WASD/arrows · C or 1/2/3 = camera · Space = handbrake · Esc = exit.');
 }
 
 export function stopDrive() {
   if (!active) return;
   active.cleanup.forEach((fn) => fn());
   Object.keys(input).forEach((k) => { input[k] = false; });
-  world.controls.enabled = true;
-  const t = world.controls.target;
-  world.camera.position.set(t.x + 160, 200, t.z + 220); // back to an overview of the city
-  world.controls.update();
+  // Restore the exact pre-drive camera view via the active session cleanup.
   setMode('city');
   setStatus('Drive ended.');
   active = null;

@@ -95,8 +95,9 @@ bus.on('city:generate', async () => {
           return;
         }
         document.getElementById('loader-text').textContent = 'Downloading map data…';
-        const detail = p.total ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB`
-          : `${tileNote}${p.ways.toLocaleString()} items · ${mb} MB`;
+        const detail = p.total
+          ? `${p.ways.toLocaleString()} / ${p.total.toLocaleString()} items · ${mb} MB`
+          : `${tileNote}${mb} MB downloaded`;
         setLoaderProgress(p.percent, detail); // download shows its own 0-100% (overall across tiles)
       });
       putCached(state.area, raw); // fire and forget
