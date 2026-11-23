@@ -7,6 +7,7 @@ Setup once (repo root): `npm i three@0.160.0 leaflet@1.9.4` and have `playwright
 
 ```
 node tools/e2e/traffic-e2e.js     # 15 checks: generate, build, traffic on/off, drive, regenerate (exit code 1 on failure)
+node tools/e2e/roadtex-e2e.js     # GLB road texture + procedural 3/4/5/6-arm junction checks
 node tools/e2e/download-e2e.js    # 11 checks: server failover, busy retry, remembered server, cache
 node tools/e2e/stress.js 0.03     # ~3.3 km area = 1,764 buildings: timings, draw calls, triangles, memory, traffic cost
 ```
