@@ -171,18 +171,6 @@
       "tileLength": 6
     },
     {
-      "id": "blender_road_asphalt",
-      "name": "Blender Road Asphalt",
-      "type": "image",
-      "path": "streets/road_asphalt.webp",
-      "kinds": [
-        "primary",
-        "secondary"
-      ],
-      "tileLength": 12,
-      "enabled": false
-    },
-    {
       "id": "road_glb_segment",
       "name": "GLB Road Segment",
       "type": "glb",
