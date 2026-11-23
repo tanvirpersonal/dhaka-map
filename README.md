@@ -189,3 +189,21 @@ Done and verified in a real browser: Generate / Build / Edit swap / GLB export, 
 - [ ] Per-street swap in edit mode (street textures from `assets/streets`)
 - [ ] More asset categories made in Blender (see `assets/README.md`): street signs, bus stops, fences, mosque/temple, bridges
 - [ ] GitHub Pages deploy note + live link
+
+
+## GitHub Pages module-load + favicon fix (Nov 23, 2026)
+
+### Reported browser errors
+- `src/data/projection.js` returned HTTP 503 while the browser was loading the city parser.
+- `src/main.js` then reported `Failed to fetch dynamically imported module: ./data/parser.js`. This was a cascading ES-module graph failure: `parser.js` statically imported `projection.js`, so a failed dependency prevented the parser module from evaluating.
+- `favicon.ico` returned 404 because the page did not declare a favicon and the browser requested its default `/favicon.ico`.
+
+### Changes made
+- `src/data/parser.js`: moved the small local equirectangular projection helper into the parser module. The parser no longer needs to fetch `projection.js` as a dependency, so a transient 503 on that standalone file cannot block city parsing. The existing `src/data/projection.js` is retained for any other module that may use it.
+- `assets/favicon.svg`: added a lightweight project favicon.
+- `index.html`: explicitly links to `assets/favicon.svg` using a repository-relative path, which works under the GitHub Pages project URL `/dhaka-map/`.
+
+### Verification / follow-up
+- Confirmed the updated source files and favicon were committed to the `main` branch.
+- GitHub Pages live deployment could not be independently checked from this session. After Pages finishes deploying, hard-refresh the site (Ctrl+Shift+R) and confirm the Network panel no longer shows the parser import failure or favicon 404.
+- If `parser.js` itself still returns 503 after deployment, that is a GitHub Pages/CDN availability problem rather than a parser dependency issue; retry after deployment/cache propagation and check the file URL directly.
