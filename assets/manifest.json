@@ -3,56 +3,181 @@
   "_doc": "Registry of every asset module. Paths are relative to the assets/ folder. type 'module' = JS file exporting meta + build(THREE, opts); type 'glb' = binary model scaled to fit the lot. kinds match parser.js buildingKind()/roadKind(). areaRange (m2) and heightRange (m) steer automatic matching in Build City.",
   "buildings": [
     {
-      "id": "house_small", "name": "Small House", "category": "residential", "type": "module",
+      "id": "house_small",
+      "name": "Small House",
+      "category": "residential",
+      "type": "module",
       "path": "buildings/residential/house_small.js",
-      "kinds": ["house", "generic"], "areaRange": [15, 220], "heightRange": [2.5, 10]
+      "kinds": [
+        "house",
+        "generic"
+      ],
+      "areaRange": [
+        15,
+        220
+      ],
+      "heightRange": [
+        2.5,
+        10
+      ]
     },
     {
-      "id": "apartment_block", "name": "Apartment Block", "category": "residential", "type": "module",
+      "id": "apartment_block",
+      "name": "Apartment Block",
+      "category": "residential",
+      "type": "module",
       "path": "buildings/residential/apartment_block.js",
-      "kinds": ["apartment", "house", "generic"], "areaRange": [80, 2500], "heightRange": [9, 45]
+      "kinds": [
+        "apartment",
+        "house",
+        "generic"
+      ],
+      "areaRange": [
+        80,
+        2500
+      ],
+      "heightRange": [
+        9,
+        45
+      ]
     },
     {
-      "id": "shop_row", "name": "Shop Row", "category": "commercial", "type": "module",
+      "id": "shop_row",
+      "name": "Shop Row",
+      "category": "commercial",
+      "type": "module",
       "path": "buildings/commercial/shop_row.js",
-      "kinds": ["commercial", "generic"], "areaRange": [30, 900], "heightRange": [3, 16]
+      "kinds": [
+        "commercial",
+        "generic"
+      ],
+      "areaRange": [
+        30,
+        900
+      ],
+      "heightRange": [
+        3,
+        16
+      ]
     },
     {
-      "id": "office_tower", "name": "Office Tower", "category": "commercial", "type": "module",
+      "id": "office_tower",
+      "name": "Office Tower",
+      "category": "commercial",
+      "type": "module",
       "path": "buildings/commercial/office_tower.js",
-      "kinds": ["office", "commercial"], "areaRange": [120, 5000], "heightRange": [18, 220]
+      "kinds": [
+        "office",
+        "commercial"
+      ],
+      "areaRange": [
+        120,
+        5000
+      ],
+      "heightRange": [
+        18,
+        220
+      ]
     },
     {
-      "id": "warehouse", "name": "Warehouse", "category": "industrial", "type": "module",
+      "id": "warehouse",
+      "name": "Warehouse",
+      "category": "industrial",
+      "type": "module",
       "path": "buildings/industrial/warehouse.js",
-      "kinds": ["industrial", "generic"], "areaRange": [80, 8000], "heightRange": [3.5, 16]
+      "kinds": [
+        "industrial",
+        "generic"
+      ],
+      "areaRange": [
+        80,
+        8000
+      ],
+      "heightRange": [
+        3.5,
+        16
+      ]
     },
     {
-      "id": "school", "name": "School / Public Building", "category": "public", "type": "module",
+      "id": "school",
+      "name": "School / Public Building",
+      "category": "public",
+      "type": "module",
       "path": "buildings/public/school.js",
-      "kinds": ["public"], "areaRange": [150, 9000], "heightRange": [3.5, 22]
+      "kinds": [
+        "public"
+      ],
+      "areaRange": [
+        150,
+        9000
+      ],
+      "heightRange": [
+        3.5,
+        22
+      ]
     }
   ],
   "streets": [
     {
-      "id": "asphalt_primary", "name": "Primary Road", "type": "module",
-      "path": "streets/asphalt_primary.js", "kinds": ["primary"], "tileLength": 12
+      "id": "asphalt_primary",
+      "name": "Primary Road",
+      "type": "module",
+      "path": "streets/asphalt_primary.js",
+      "kinds": [
+        "primary"
+      ],
+      "tileLength": 12
     },
     {
-      "id": "asphalt_secondary", "name": "Secondary Road", "type": "module",
-      "path": "streets/asphalt_secondary.js", "kinds": ["secondary"], "tileLength": 10
+      "id": "asphalt_secondary",
+      "name": "Secondary Road",
+      "type": "module",
+      "path": "streets/asphalt_secondary.js",
+      "kinds": [
+        "secondary"
+      ],
+      "tileLength": 10
     },
     {
-      "id": "residential_lane", "name": "Residential Lane", "type": "module",
-      "path": "streets/residential_lane.js", "kinds": ["residential"], "tileLength": 8
+      "id": "residential_lane",
+      "name": "Residential Lane",
+      "type": "module",
+      "path": "streets/residential_lane.js",
+      "kinds": [
+        "residential"
+      ],
+      "tileLength": 8
     },
     {
-      "id": "footpath", "name": "Footpath", "type": "module",
-      "path": "streets/footpath.js", "kinds": ["footpath"], "tileLength": 3
+      "id": "footpath",
+      "name": "Footpath",
+      "type": "module",
+      "path": "streets/footpath.js",
+      "kinds": [
+        "footpath"
+      ],
+      "tileLength": 3
     },
     {
-      "id": "dirt_track", "name": "Dirt Track", "type": "module",
-      "path": "streets/dirt_track.js", "kinds": ["dirt"], "tileLength": 6
+      "id": "dirt_track",
+      "name": "Dirt Track",
+      "type": "module",
+      "path": "streets/dirt_track.js",
+      "kinds": [
+        "dirt"
+      ],
+      "tileLength": 6
+    },
+    {
+      "id": "blender_road_asphalt",
+      "name": "Blender Road Asphalt",
+      "type": "image",
+      "path": "streets/road_asphalt.webp",
+      "kinds": [
+        "primary",
+        "secondary"
+      ],
+      "tileLength": 12
     }
   ]
 }
