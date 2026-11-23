@@ -79,58 +79,45 @@ export async function createBuilding(assetId, fit) {
   return group;
 }
 
-/** Textured material for a street kind or a specific street asset id. Cached. */
-/** Load a GLB road segment and repeat it along the OSM road centreline. */
-export async function createStreetModel(road, entry) {
-  const source = await loadGlb(entry);
-  source.updateMatrixWorld(true);
-  const sourceBox = new THREE.Box3().setFromObject(source);
-  const sourceSize = sourceBox.getSize(new THREE.Vector3());
-  const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
-  const longAxis = sourceSize.x >= sourceSize.z ? 'x' : 'z';
-  const longSize = Math.max(0.001, longAxis === 'x' ? sourceSize.x : sourceSize.z);
-  const shortSize = Math.max(0.001, longAxis === 'x' ? sourceSize.z : sourceSize.x);
-  const segments = [];
-  for (let i = 1; i < road.points.length; i++) {
-    const a = road.points[i - 1], b = road.points[i];
-    const dx = b[0] - a[0], dz = b[1] - a[1];
-    const length = Math.hypot(dx, dz);
-    if (length < 0.25) continue;
-    const rotation = longAxis === 'x' ? -Math.atan2(dz, dx) : Math.atan2(dx, dz);
-    const sx = longAxis === 'x' ? length / longSize : road.width / shortSize;
-    const sz = longAxis === 'x' ? road.width / shortSize : length / longSize;
-    const matrix = new THREE.Matrix4().makeTranslation((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2)
-      .multiply(new THREE.Matrix4().makeRotationY(rotation))
-      .multiply(new THREE.Matrix4().makeScale(sx, 1, sz))
-      .multiply(new THREE.Matrix4().makeTranslation(-sourceCenter.x, -sourceBox.min.y, -sourceCenter.z));
-    segments.push(matrix);
-  }
-
-  const group = new THREE.Group();
-  group.name = `street_glb_${road.id}`;
-  group.userData.streetAsset = entry.id;
-  const sourceMeshes = [];
-  source.traverse((o) => { if (o.isMesh && o.geometry && o.material) sourceMeshes.push(o); });
-
-  // One InstancedMesh per GLB mesh keeps draw calls low even for roads with many OSM points.
-  for (const srcMesh of sourceMeshes) {
-    const material = Array.isArray(srcMesh.material)
-      ? srcMesh.material.map((m) => m.clone())
-      : srcMesh.material.clone();
-    [].concat(material).forEach((m) => { m.depthWrite = false; });
-    const instanced = new THREE.InstancedMesh(srcMesh.geometry, material, segments.length);
-    instanced.name = srcMesh.name || 'glb-road-mesh';
-    instanced.castShadow = false;
-    instanced.receiveShadow = true;
-    instanced.renderOrder = -14;
-    for (let i = 0; i < segments.length; i++) {
-      instanced.setMatrixAt(i, segments[i].clone().multiply(srcMesh.matrixWorld));
+/**
+ * Road asset from a .glb: its asphalt texture (edge lines + centre dashes) is repeated along the OSM road.
+ * The model's flat preview quad is only used as the texture carrier; the texture is mapped square, so
+ * one tile is as long as the road is wide and lane lines never stretch on short or long segments.
+ * Returns ONE mesh per road with a shared material, so Build City can merge them into a few draw calls.
+ */
+const glbRoadMatCache = new Map(); // entry id -> material
+async function glbRoadMaterial(entry) {
+  if (!glbRoadMatCache.has(entry.id)) {
+    const source = await loadGlb(entry);
+    let src = null;
+    source.traverse((o) => { if (!src && o.isMesh && o.material) src = [].concat(o.material)[0]; });
+    if (!src) throw new Error(`${entry.path}: no mesh material found`);
+    let map = null;
+    if (src.map) {
+      map = src.map.clone();
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.offset.set(0, 0); map.repeat.set(1, 1); map.rotation = 0; // drop the preview quad's KHR_texture_transform
+      map.matrix.identity();
+      map.anisotropy = 8;
+      map.needsUpdate = true;
     }
-    instanced.instanceMatrix.needsUpdate = true;
-    instanced.computeBoundingSphere();
-    group.add(instanced);
+    const m = new THREE.MeshStandardMaterial({ map, color: map ? 0xffffff : (src.color || 0x333333), roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
+    if (map) { m.emissiveMap = map; m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = 0.35; } // the asphalt is very dark: lift it so lane lines read in daylight
+    m.depthWrite = false;
+    m.userData.shared = true;
+    if (map) map.userData.shared = true;
+    glbRoadMatCache.set(entry.id, m);
   }
-  return group;
+  return glbRoadMatCache.get(entry.id);
+}
+
+export async function createStreetModel(road, entry) {
+  const { ribbonGeometry } = await import('../world/streetFactory.js');
+  const mesh = new THREE.Mesh(ribbonGeometry(road.points, road.width, Math.max(road.width, 3)), await glbRoadMaterial(entry));
+  mesh.name = `street_glb_${road.id}`;
+  mesh.receiveShadow = true;
+  mesh.userData.streetAsset = entry.id;
+  return mesh;
 }
 
 /** Textured material for a street kind or a specific street asset id. Cached. */
