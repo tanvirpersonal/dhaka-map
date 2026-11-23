@@ -126,7 +126,8 @@
       "kinds": [
         "primary"
       ],
-      "tileLength": 12
+      "tileLength": 12,
+      "enabled": false
     },
     {
       "id": "asphalt_secondary",
@@ -136,7 +137,8 @@
       "kinds": [
         "secondary"
       ],
-      "tileLength": 10
+      "tileLength": 10,
+      "enabled": false
     },
     {
       "id": "residential_lane",
@@ -177,7 +179,19 @@
         "primary",
         "secondary"
       ],
-      "tileLength": 12
+      "tileLength": 12,
+      "enabled": false
+    },
+    {
+      "id": "road_glb_segment",
+      "name": "GLB Road Segment",
+      "type": "glb",
+      "path": "streets/Untitled.glb",
+      "kinds": [
+        "primary",
+        "secondary"
+      ],
+      "enabled": true
     }
   ]
 }
