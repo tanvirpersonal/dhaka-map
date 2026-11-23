@@ -188,21 +188,3 @@ export async function getStreetEntry(kind) {
   return m.streets.findLast((s) => s.enabled !== false && s.kinds.includes(kind)) || null;
 }
 
-
-// Junction surface uses the same GLB road material and samples only its asphalt field.
-const glbIntersectionMatCache = new Map();
-export async function getRoadIntersectionMaterial(entry) {
-  if (!entry || entry.type !== 'glb') return null;
-  if (!glbIntersectionMatCache.has(entry.id)) {
-    const roadMaterial = await glbRoadMaterial(entry);
-    const material = roadMaterial.clone();
-    // Keep the GLB texture shared; only the material state is specific to junctions.
-    material.map = roadMaterial.map;
-    material.emissiveMap = roadMaterial.emissiveMap;
-    material.depthWrite = false;
-    material.userData.shared = true;
-    if (material.map) material.map.userData.shared = true;
-    glbIntersectionMatCache.set(entry.id, material);
-  }
-  return glbIntersectionMatCache.get(entry.id);
-}
