@@ -207,3 +207,12 @@ Done and verified in a real browser: Generate / Build / Edit swap / GLB export, 
 - Confirmed the updated source files and favicon were committed to the `main` branch.
 - GitHub Pages live deployment could not be independently checked from this session. After Pages finishes deploying, hard-refresh the site (Ctrl+Shift+R) and confirm the Network panel no longer shows the parser import failure or favicon 404.
 - If `parser.js` itself still returns 503 after deployment, that is a GitHub Pages/CDN availability problem rather than a parser dependency issue; retry after deployment/cache propagation and check the file URL directly.
+
+
+## Blender road surface texture (Nov 23, 2026)
+
+- Source: `assets/streets/Untitled.blend` (uploaded Blender project). The project contains an embedded 1024×1024 asphalt image datablock named `road_asphalt_secondary`; its original external source path pointed to a local machine and was not suitable for GitHub Pages.
+- Extracted the embedded image and converted it to a compact 512×512 WebP at `assets/streets/road_asphalt.webp` (about 13 KB), so the browser can load it directly without parsing the Blender project.
+- Registered `blender_road_asphalt` in `assets/manifest.json` as an image street asset for `primary` and `secondary` roads, with a 12 m repeat length. The existing asset loader already supports `type: "image"`, and Build City applies the manifest's last matching street asset, so no renderer rewrite was needed.
+- The source `.blend` is retained unchanged. Residential lanes, footpaths and dirt tracks keep their existing materials; the Blender texture is assigned to primary and secondary roads only.
+- Browser/WebGL visual verification is still required after GitHub Pages deploy: select an area, Generate City, then Build City and inspect primary/secondary road tiling and line orientation.
