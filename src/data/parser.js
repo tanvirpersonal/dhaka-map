@@ -9,7 +9,33 @@
 //   bounds, area (lat/lon bbox)
 // }
 
-import { makeProjection } from './projection.js';
+// Keep the tiny projection helper local to this parser. This avoids making the
+// parser's entire ES-module graph fail when GitHub Pages/CDN temporarily returns
+// an error for projection.js. projection.js remains available for other modules.
+const EARTH_RADIUS = 6378137;
+
+function makeProjection(area) {
+  const lat0 = (area.south + area.north) / 2;
+  const lon0 = (area.west + area.east) / 2;
+  const cosLat = Math.cos((lat0 * Math.PI) / 180);
+
+  const project = (lat, lon) => [
+    ((lon - lon0) * Math.PI / 180) * EARTH_RADIUS * cosLat,
+    -((lat - lat0) * Math.PI / 180) * EARTH_RADIUS,
+  ];
+
+  const [minX, minZ] = project(area.north, area.west);
+  const [maxX, maxZ] = project(area.south, area.east);
+
+  return {
+    project,
+    bounds: {
+      minX, maxX, minZ, maxZ,
+      width: maxX - minX,
+      depth: maxZ - minZ,
+    },
+  };
+}
 
 const LEVEL_HEIGHT = 3.2;
 const DEFAULT_LEVELS = 3;
