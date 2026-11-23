@@ -37,7 +37,8 @@ function pointSegmentDistance(point, a, b) {
   return Math.hypot(point[0] - (a[0] + t * dx), point[1] - (a[1] + t * dz));
 }
 
-// Spatial index of nearby road segments keeps median detection fast on large OSM areas.
+// Spatial index of road segments. Sidewalk clipping queries only nearby cells,
+// so the strict road-clearance test remains practical for large OSM selections.
 function buildRoadSegmentIndex(roads, cellSize = 32) {
   const cells = new Map();
   const key = (x, z) => `${Math.floor(x / cellSize)},${Math.floor(z / cellSize)}`;
@@ -60,37 +61,114 @@ function buildRoadSegmentIndex(roads, cellSize = 32) {
   return { cells, cellSize, key };
 }
 
-// A sidewalk facing another carriageway becomes a fake green median when both
-// roads generate overlapping footpaths. Detect that side and omit the strip.
-function isSideBlocked(road, roads, side, index) {
+// Find real 3+ arm junctions from shared OSM node IDs. Sidewalks are cut back
+// around these nodes so no footpath material can occupy the intersection apron.
+function buildJunctionExclusions(roads) {
+  const nodes = new Map();
+  for (const road of roads) {
+    if (!road.drivable || road.bridge || road.tunnel || !Array.isArray(road.nodeIds)) continue;
+    for (let i = 0; i < road.nodeIds.length; i++) {
+      const id = road.nodeIds[i];
+      if (id == null) continue;
+      if (!nodes.has(String(id))) nodes.set(String(id), []);
+      nodes.get(String(id)).push({ road, index: i });
+    }
+  }
+
+  const zones = [];
+  for (const occurrences of nodes.values()) {
+    if (new Set(occurrences.map((v) => v.road.id)).size < 2) continue;
+    const center = occurrences[0].road.points[occurrences[0].index];
+    const arms = [];
+    let maxWidth = 0;
+    for (const { road, index } of occurrences) {
+      maxWidth = Math.max(maxWidth, road.width || 5);
+      for (const ni of [index - 1, index + 1]) {
+        if (ni < 0 || ni >= road.points.length) continue;
+        const p = road.points[ni];
+        let dx = p[0] - center[0], dz = p[1] - center[1];
+        const len = Math.hypot(dx, dz);
+        if (len < 0.25) continue;
+        dx /= len; dz /= len;
+        if (!arms.some((a) => a.dx * dx + a.dz * dz > 0.985)) arms.push({ dx, dz });
+      }
+    }
+    if (arms.length >= 3) {
+      zones.push({
+        x: center[0], z: center[1],
+        // Includes the junction polygon, curb return and the full footpath width.
+        radius: maxWidth / 2 + WALK_WIDTH + 3.5,
+      });
+    }
+  }
+  return zones;
+}
+
+function nearbySegments(point, index) {
+  const cx = Math.floor(point[0] / index.cellSize);
+  const cz = Math.floor(point[1] / index.cellSize);
+  const found = new Set();
+  for (let x = cx - 1; x <= cx + 1; x++) for (let z = cz - 1; z <= cz + 1; z++) {
+    for (const segment of index.cells.get(index.key(x * index.cellSize, z * index.cellSize)) || []) found.add(segment);
+  }
+  return found;
+}
+
+// A sidewalk sample is valid only if its ENTIRE width clears every other road.
+// This is the important difference from merely hiding a whole side of a road.
+function isSidewalkSampleClear(ownerRoad, point, index, junctionZones) {
+  for (const zone of junctionZones) {
+    if (Math.hypot(point[0] - zone.x, point[1] - zone.z) < zone.radius + WALK_WIDTH / 2) return false;
+  }
+
+  for (const { road, a, b } of nearbySegments(point, index)) {
+    if (road === ownerRoad) continue;
+    const requiredClearance = (road.width || 5) / 2 + WALK_WIDTH / 2 + 0.2;
+    if (pointSegmentDistance(point, a, b) < requiredClearance) return false;
+  }
+  return true;
+}
+
+// Densify each OSM way, offset it to the kerb, and split it wherever the
+// sidewalk strip would touch a road corridor or a 3/4/multi-arm junction.
+function makeClippedSidewalkRuns(road, side, index, junctionZones) {
+  const centerline = [];
+  for (let i = 1; i < road.points.length; i++) {
+    const a = road.points[i - 1], b = road.points[i];
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const steps = Math.max(1, Math.ceil(length / 2));
+    for (let j = 0; j < steps; j++) {
+      const t = j / steps;
+      centerline.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  const last = road.points[road.points.length - 1];
+  centerline.push([last[0], last[1]]);
+  if (centerline.length < 2) return [];
+
   const offset = road.width / 2 + WALK_WIDTH / 2 + 0.05;
-  const samples = road.points.map(([x, z], i) => {
-    const prev = road.points[Math.max(0, i - 1)];
-    const next = road.points[Math.min(road.points.length - 1, i + 1)];
+  const sidewalkPath = centerline.map(([x, z], i) => {
+    const prev = centerline[Math.max(0, i - 1)];
+    const next = centerline[Math.min(centerline.length - 1, i + 1)];
     let dx = next[0] - prev[0], dz = next[1] - prev[1];
     const len = Math.hypot(dx, dz) || 1;
     dx /= len; dz /= len;
     return [x - dz * offset * side, z + dx * offset * side];
   });
 
-  let blocked = 0;
-  for (const p of samples) {
-    const cx = Math.floor(p[0] / index.cellSize), cz = Math.floor(p[1] / index.cellSize);
-    const candidates = new Set();
-    for (let x = cx - 1; x <= cx + 1; x++) for (let z = cz - 1; z <= cz + 1; z++) {
-      for (const segment of index.cells.get(index.key(x * index.cellSize, z * index.cellSize)) || []) candidates.add(segment);
-    }
-    const nearRoad = [...candidates].some(({ road: other, a, b }) => {
-      if (other === road) return false;
-      const clearance = (other.width || 5) / 2 + WALK_WIDTH * 0.55 + 0.2;
-      return pointSegmentDistance(p, a, b) < clearance;
-    });
-    if (nearRoad) blocked++;
-  }
+  const runs = [];
+  let run = [];
+  const flush = () => {
+    if (run.length >= 2 && polylineLength(run) >= 3) runs.push(run);
+    run = [];
+  };
 
-  // Require a sustained parallel/adjacent road before suppressing this whole side;
-  // a crossing street at one node must not erase an otherwise valid sidewalk.
-  return samples.length > 1 && blocked / samples.length >= 0.45;
+  for (const point of sidewalkPath) {
+    if (isSidewalkSampleClear(road, point, index, junctionZones)) run.push(point);
+    else flush();
+  }
+  flush();
+  return runs;
 }
 
 const material = new THREE.MeshStandardMaterial({ color: 0xa8a297, roughness: 0.95, side: THREE.DoubleSide });
@@ -101,17 +179,20 @@ export const sidewalkMaterial = material;
 export function makeSidewalks(roads) {
   const geos = [];
   const roadIndex = buildRoadSegmentIndex(roads);
+  const junctionZones = buildJunctionExclusions(roads);
   for (const r of roads) {
     if (!r.drivable || r.bridge || r.tunnel || SKIP_HIGHWAYS.has(r.highway)) continue;
     if (r.points.length < 2 || polylineLength(r.points) < 8) continue;
     const off = r.width / 2 + WALK_WIDTH / 2 + 0.05;
     for (const side of [1, -1]) {
-      // Do not build the inward-facing footpath between parallel carriageways:
-      // it overlaps with its neighbour and reads as a wide green median in the scene.
-      if (isSideBlocked(r, roads, side, roadIndex)) continue;
-      const g = ribbonGeometry(offsetPolyline(r.points, side * off), WALK_WIDTH, 3);
-      g.translate(0, WALK_Y, 0);
-      geos.push(g);
+      // Clip the strip against every nearby road footprint and multi-arm junction.
+      // Only the safe portions are emitted, so the footpath texture never covers asphalt.
+      const runs = makeClippedSidewalkRuns(r, side, roadIndex, junctionZones);
+      for (const run of runs) {
+        const g = ribbonGeometry(run, WALK_WIDTH, 3);
+        g.translate(0, WALK_Y, 0);
+        geos.push(g);
+      }
     }
   }
   if (!geos.length) return null;
