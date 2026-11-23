@@ -231,3 +231,8 @@ Done and verified in a real browser: Generate / Build / Edit swap / GLB export, 
 ### GLB road integration supersedes the earlier image-texture setup
 
 The previous `road_asphalt.webp` image registration is now disabled. The active road asset is the uploaded `assets/streets/Untitled.glb`; the old primary/secondary procedural asphalt entries are disabled as well. GLB road geometry is placed along each OSM segment and uses `InstancedMesh` per source mesh to avoid one draw call per road segment. This is the current implementation; the earlier image-texture setup is not active.
+
+
+### Removed obsolete road texture reference
+
+Removed the disabled `blender_road_asphalt` manifest entry that still referenced the deleted/nonexistent `streets/road_asphalt.webp` file. The active road entry remains `road_glb_segment` pointing to `streets/Untitled.glb`. If an already-open browser tab still requests the old WebP, it is running a cached/previous GitHub Pages deployment; hard-refresh after the latest Pages deployment completes.
