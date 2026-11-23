@@ -146,6 +146,8 @@ export function makeRoadIntersections(roads, material) {
       center: junction.center,
     };
     asDecal(mesh, junction.layer);
+    // Draw after the incoming road ribbons, but before footpaths and sidewalks.
+    mesh.renderOrder = junction.layer + 0.5;
     group.add(mesh);
   }
 
