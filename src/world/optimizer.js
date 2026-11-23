@@ -19,6 +19,8 @@ const CHUNK = 400; // meters
 const EDITABLE = ['buildings', 'streets', 'sidewalks'];
 
 let baked = null;
+/** Layer names (buildings/streets/sidewalks) the user switched off; honoured by editable and baked meshes. */
+export const hiddenLayers = new Set();
 const vcMaterials = new Map(); // signature -> shared vertex-color material
 
 export const isBaked = () => !!baked && baked.visible;
@@ -142,9 +144,9 @@ export function bakeCity() {
         if (material.vertexColors) names = [...names, 'color'];
         if (material.userData.facade && s.geo.attributes.aSeed) names = [...names, 'aSeed'];
       }
-      const key = `${Math.floor(c.x / CHUNK)},${Math.floor(c.z / CHUNK)}|${sig}|${s.order}`;
+      const key = `${name}|${Math.floor(c.x / CHUNK)},${Math.floor(c.z / CHUNK)}|${sig}|${s.order}`;
       let b = buckets.get(key);
-      if (!b) buckets.set(key, (b = { material, order: s.order, names, items: [] }));
+      if (!b) buckets.set(key, (b = { layer: name, material, order: s.order, names, items: [] }));
       b.items.push(s);
     }
   }
@@ -152,10 +154,12 @@ export function bakeCity() {
   baked = new THREE.Group();
   baked.name = 'baked';
   let tris = 0;
-  for (const { material, order, names, items } of buckets.values()) {
+  for (const { layer, material, order, names, items } of buckets.values()) {
     const merged = mergeItems(items, names);
     const mesh = new THREE.Mesh(merged, material);
     mesh.renderOrder = order;
+    mesh.userData.layer = layer; // lets layerManager hide e.g. only the baked buildings
+    mesh.visible = !hiddenLayers.has(layer);
     mesh.castShadow = !isDecal(order);
     mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false;
@@ -173,7 +177,7 @@ export function setBaked(on) {
   const root = world.cityRoot;
   if (!root) return;
   if (on && !baked) return;
-  EDITABLE.forEach((n) => { const g = root.getObjectByName(n); if (g) g.visible = !on; });
+  EDITABLE.forEach((n) => { const g = root.getObjectByName(n); if (g) g.visible = !on && !hiddenLayers.has(n); });
   if (baked) baked.visible = on;
 }
 
@@ -182,6 +186,13 @@ export async function withEditable(fn) {
   const was = isBaked();
   setBaked(false);
   try { return await fn(); } finally { if (was) setBaked(true); }
+}
+
+/** Re-apply hiddenLayers to the baked chunk meshes and editable groups. */
+export function applyBakedLayerVisibility() {
+  const root = world.cityRoot;
+  if (baked) baked.children.forEach((m) => { m.visible = !hiddenLayers.has(m.userData.layer); });
+  if (root) EDITABLE.forEach((n) => { const g = root.getObjectByName(n); if (g) g.visible = !isBaked() && !hiddenLayers.has(n); });
 }
 
 export function clearBaked() { disposeBaked(); }

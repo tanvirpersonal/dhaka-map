@@ -33,6 +33,7 @@ async function init() {
 
   const { initToolbar } = await lazy('./ui/toolbar.js');
   initToolbar();
+  (await lazy('./ui/layersPanel.js')).initLayersPanel();
 
   const { initMapPicker } = await lazy('./ui/mapPicker.js');
   initMapPicker($('map-view'));

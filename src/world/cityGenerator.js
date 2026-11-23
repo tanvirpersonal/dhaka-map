@@ -9,6 +9,8 @@ import { makeSidewalks } from './sidewalks.js';
 import { makeProps } from './props.js';
 import { asDecal, LAYER } from './layers.js';
 import { initQuality } from './quality.js';
+import { clearBuildingsFromRoads } from '../data/layout.js';
+import { registerCityLayers } from './layerManager.js';
 
 function flatShape(footprint, y, color, name) {
   const shape = new THREE.Shape();
@@ -31,6 +33,7 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   clearCity();
   const root = world.cityRoot;
   const { bounds } = data;
+  clearBuildingsFromRoads(data); // no building on a road or sidewalk (mutates data.buildings, idempotent)
 
   // Ground slab slightly larger than the selected area.
   const pad = 40;
@@ -75,6 +78,7 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
 
   root.add(makeProps(data)); // instanced lamps + trees
 
+  registerCityLayers();
   frameCity(bounds);
 }
 

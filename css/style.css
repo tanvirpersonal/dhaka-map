@@ -74,3 +74,10 @@ main { position: fixed; inset: 0; padding-top: var(--toolbar-h, 96px); }
 .tod { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .tod input { width: 110px; }
 @media (hover: hover) and (pointer: fine) { .drive-pad { display: none; } }
+
+/* Layers panel */
+#layers-panel { position: absolute; top: 10px; left: 10px; min-width: 170px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; z-index: 5; }
+#layers-panel h3 { margin: 0 0 6px; font-size: 13px; }
+.layer-row { display: block; padding: 4px 0; font-size: 13px; cursor: pointer; }
+.layer-row.missing { opacity: .4; cursor: default; }
