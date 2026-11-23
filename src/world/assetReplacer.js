@@ -45,7 +45,7 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
 async function applyStreetTextures() {
   const streets = getGroup('streets');
   if (!streets) return;
-  for (const mesh of streets.children) {
+  for (const mesh of [...streets.children]) { // copy: GLB roads swap objects while we loop
     const road = mesh.userData.road;
     if (!road) continue;
     const entry = await getStreetEntry(road.kind);
@@ -53,6 +53,7 @@ async function applyStreetTextures() {
     if (entry.type === 'glb') {
       const model = await createStreetModel(road, entry);
       model.position.y = mesh.position.y;
+      model.renderOrder = mesh.renderOrder; // keep the road's place in the ground layer order
       model.userData.road = road;
       model.userData.placeholder = false;
       mesh.geometry.dispose();

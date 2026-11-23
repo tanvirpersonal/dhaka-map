@@ -172,12 +172,13 @@
     },
     {
       "id": "road_glb_segment",
-      "name": "GLB Road Segment",
+      "name": "Road (GLB)",
       "type": "glb",
       "path": "streets/Untitled.glb",
       "kinds": [
         "primary",
-        "secondary"
+        "secondary",
+        "residential"
       ],
       "enabled": true
     }
