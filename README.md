@@ -226,3 +226,8 @@ Done and verified in a real browser: Generate / Build / Edit swap / GLB export, 
 - Disabled the legacy `asphalt_primary`, `asphalt_secondary`, and previous `blender_road_asphalt` image entry (`enabled: false`); disabled entries are excluded from street-asset lists and matching. This prevents the older replaceable road assets from overriding the GLB.
 - The earlier `assets/streets/road_asphalt.webp` file is no longer selected; it is retained in the repo but inactive. The original `.blend` source is untouched.
 - Visual verification is pending: the GLB's axis, pivot, width/length proportions, and segment seams must be checked in a real browser after deployment. If the model's long axis or pivot differs from the assumed horizontal bounding-box layout, orientation/offset may need a small adjustment.
+
+
+### GLB road integration supersedes the earlier image-texture setup
+
+The previous `road_asphalt.webp` image registration is now disabled. The active road asset is the uploaded `assets/streets/Untitled.glb`; the old primary/secondary procedural asphalt entries are disabled as well. GLB road geometry is placed along each OSM segment and uses `InstancedMesh` per source mesh to avoid one draw call per road segment. This is the current implementation; the earlier image-texture setup is not active.
