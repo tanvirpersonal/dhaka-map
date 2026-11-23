@@ -83,41 +83,52 @@ export async function createBuilding(assetId, fit) {
 /** Load a GLB road segment and repeat it along the OSM road centreline. */
 export async function createStreetModel(road, entry) {
   const source = await loadGlb(entry);
+  source.updateMatrixWorld(true);
   const sourceBox = new THREE.Box3().setFromObject(source);
   const sourceSize = sourceBox.getSize(new THREE.Vector3());
   const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
   const longAxis = sourceSize.x >= sourceSize.z ? 'x' : 'z';
   const longSize = Math.max(0.001, longAxis === 'x' ? sourceSize.x : sourceSize.z);
   const shortSize = Math.max(0.001, longAxis === 'x' ? sourceSize.z : sourceSize.x);
-  const group = new THREE.Group();
-  group.name = `street_glb_${road.id}`;
-  group.userData.streetAsset = entry.id;
-
+  const segments = [];
   for (let i = 1; i < road.points.length; i++) {
     const a = road.points[i - 1], b = road.points[i];
     const dx = b[0] - a[0], dz = b[1] - a[1];
     const length = Math.hypot(dx, dz);
     if (length < 0.25) continue;
-    const model = source.clone(true);
-    model.position.set(-sourceCenter.x, -sourceBox.min.y, -sourceCenter.z);
-    const segment = new THREE.Group();
-    segment.add(model);
-    if (longAxis === 'x') {
-      segment.scale.set(length / longSize, 1, road.width / shortSize);
-      segment.rotation.y = -Math.atan2(dz, dx);
-    } else {
-      segment.scale.set(road.width / shortSize, 1, length / longSize);
-      segment.rotation.y = Math.atan2(dx, dz);
+    const rotation = longAxis === 'x' ? -Math.atan2(dz, dx) : Math.atan2(dx, dz);
+    const sx = longAxis === 'x' ? length / longSize : road.width / shortSize;
+    const sz = longAxis === 'x' ? road.width / shortSize : length / longSize;
+    const matrix = new THREE.Matrix4().makeTranslation((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2)
+      .multiply(new THREE.Matrix4().makeRotationY(rotation))
+      .multiply(new THREE.Matrix4().makeScale(sx, 1, sz))
+      .multiply(new THREE.Matrix4().makeTranslation(-sourceCenter.x, -sourceBox.min.y, -sourceCenter.z));
+    segments.push(matrix);
+  }
+
+  const group = new THREE.Group();
+  group.name = `street_glb_${road.id}`;
+  group.userData.streetAsset = entry.id;
+  const sourceMeshes = [];
+  source.traverse((o) => { if (o.isMesh && o.geometry && o.material) sourceMeshes.push(o); });
+
+  // One InstancedMesh per GLB mesh keeps draw calls low even for roads with many OSM points.
+  for (const srcMesh of sourceMeshes) {
+    const material = Array.isArray(srcMesh.material)
+      ? srcMesh.material.map((m) => m.clone())
+      : srcMesh.material.clone();
+    [].concat(material).forEach((m) => { m.depthWrite = false; });
+    const instanced = new THREE.InstancedMesh(srcMesh.geometry, material, segments.length);
+    instanced.name = srcMesh.name || 'glb-road-mesh';
+    instanced.castShadow = false;
+    instanced.receiveShadow = true;
+    instanced.renderOrder = -14;
+    for (let i = 0; i < segments.length; i++) {
+      instanced.setMatrixAt(i, segments[i].clone().multiply(srcMesh.matrixWorld));
     }
-    segment.position.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2);
-    segment.traverse((o) => {
-      if (!o.isMesh) return;
-      o.castShadow = false;
-      o.receiveShadow = true;
-      o.renderOrder = -14;
-      [].concat(o.material || []).forEach((mat) => { if (mat) mat.depthWrite = false; });
-    });
-    group.add(segment);
+    instanced.instanceMatrix.needsUpdate = true;
+    instanced.computeBoundingSphere();
+    group.add(instanced);
   }
   return group;
 }
