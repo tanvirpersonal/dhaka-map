@@ -163,6 +163,12 @@ Goal: big, fast, game-ready maps. Same rules: one file per push, tick the box in
 - [ ] Not measured: real download speed. This sandbox cannot reach Overpass, so test on your network (Dhaka -> Asia mirror) and check the browser Network tab
 - [ ] Candidate for later: smaller Overpass output (`out tags geom` for buildings, nodes only for roads) once it can be verified against a live server
 
+## Branch `2` merged (done)
+Merged into `main` (46c1e55): chase / cockpit / hood drive cameras (C or 1/2/3), wheel + suspension feel,
+roadside trees kept clear of roads, graphics presets / colour pipeline. Kept from `main`: ambient traffic
+(`src/world/traffic.js`) and the failover downloader (count query stays parallel instead of a preflight).
+Checks after merge: 14/14 offline downloader tests, download e2e 11/11, traffic e2e 15/15 (cameras cycled while driving).
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.
