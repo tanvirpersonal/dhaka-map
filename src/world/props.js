@@ -3,10 +3,8 @@
 // Placement is deterministic (seeded) so reloads and saved projects look identical.
 
 import * as THREE from 'three';
-import { offsetPolyline } from './sidewalks.js';
 import { rng, hashString } from '../assets/moduleKit.js';
 
-const LAMP_SPACING = 38;
 const TREE_SPACING = 14;
 
 /** Points every `spacing` meters along a polyline, with the travel heading at each point. */
