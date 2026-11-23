@@ -143,6 +143,8 @@ export function makeProps(data) {
 
   // Trees: along residential/secondary roads (outer side of the sidewalk) and inside green areas.
   const trees = [];
+  // Base matrix used to compose each tree's instance transforms.
+  const m4 = new THREE.Matrix4();
   const addTree = (x, z) => {
     const s = 0.8 + r() * 0.9;
     const pos = new THREE.Vector3(x, 0, z);
