@@ -169,6 +169,8 @@ roadside trees kept clear of roads, graphics presets / colour pipeline. Kept fro
 (`src/world/traffic.js`) and the failover downloader (count query stays parallel instead of a preflight).
 Checks after merge: 14/14 offline downloader tests, download e2e 11/11, traffic e2e 15/15 (cameras cycled while driving).
 
+- Drive camera smoothing (Nov 23): camera position now rigid to the car, only heading and chase distance are smoothed (pull in fast, ease out slow); removes jitter/snapping.
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.

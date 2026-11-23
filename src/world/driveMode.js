@@ -230,7 +230,7 @@ export function startDrive() {
   const look = new THREE.Vector3();
   const desiredPos = new THREE.Vector3();
   const desiredLook = new THREE.Vector3();
-  let cameraDistance = 10.5, cameraHeight = 5.2;
+  let cameraDistance = 10.5, cameraHeight = 5.2, chaseDist = 10.5, camHeading = car.heading;
   let previousSpeed = 0;
   let suspensionVelocity = 0;
   let suspensionOffset = 0;
@@ -274,28 +274,35 @@ export function startDrive() {
     cameraDistance = THREE.MathUtils.lerp(cameraDistance, 9.5 + speed01 * 5.5, ease);
     cameraHeight = THREE.MathUtils.lerp(cameraHeight, 4.8 + speed01 * 2.2, ease);
 
+    // Smooth only the camera's heading (shortest-angle). The position stays rigidly tied to the car,
+    // so there is no positional lag that makes the car jitter inside the frame.
+    let dh = car.heading - camHeading;
+    dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+    camHeading += dh * (1 - Math.exp(-(cameraMode === 'chase' ? 5 : 14) * dt));
+    const cx = Math.sin(camHeading), cz = Math.cos(camHeading);
+
     if (cameraMode === 'chase') {
       cameraCheckTimer -= dt;
       if (cameraCheckTimer <= 0) {
         cameraCheckTimer = 0.08;
         rayOrigin.set(car.x, 1.55, car.z);
-        rayDirection.set(-fx, 0.16, -fz).normalize();
+        rayDirection.set(-cx, 0.16, -cz).normalize();
         raycaster.set(rayOrigin, rayDirection);
         raycaster.far = cameraDistance;
         const hits = raycaster.intersectObjects(world.cityRoot.children, true);
         safeChaseDistance = hits.length ? Math.max(2.8, hits[0].distance - 0.65) : cameraDistance;
       }
-      desiredPos.set(car.x - fx * Math.min(cameraDistance, safeChaseDistance), 0.05 + cameraHeight, car.z - fz * Math.min(cameraDistance, safeChaseDistance));
-      desiredLook.set(car.x + fx * (3.2 + speed01 * 3.5), 1.05 + speed01 * 0.35, car.z + fz * (3.2 + speed01 * 3.5));
-      camPos.lerp(desiredPos, 1 - Math.exp(-6.5 * dt));
-      look.lerp(desiredLook, 1 - Math.exp(-7.5 * dt));
+      // Pull in quickly when blocked, ease back out slowly: no sudden snapping.
+      const wanted = Math.min(cameraDistance, safeChaseDistance);
+      chaseDist += (wanted - chaseDist) * (1 - Math.exp(-(wanted < chaseDist ? 9 : 1.6) * dt));
+      camPos.set(car.x - cx * chaseDist, 0.05 + cameraHeight, car.z - cz * chaseDist);
+      look.set(car.x + cx * (3.2 + speed01 * 3.5), 1.05 + speed01 * 0.35, car.z + cz * (3.2 + speed01 * 3.5));
     } else {
-      // Camera positions are car-local: +Z is forward, +Y is up.
-      localCameraOffset.set(0, cameraMode === 'cockpit' ? 1.58 : 1.18, cameraMode === 'cockpit' ? 0.05 : 1.35).applyAxisAngle(upAxis, car.heading);
-      desiredPos.set(car.x + localCameraOffset.x, 0.05 + localCameraOffset.y, car.z + localCameraOffset.z);
-      desiredLook.set(car.x + fx * (cameraMode === 'cockpit' ? 24 : 35), 1.05, car.z + fz * (cameraMode === 'cockpit' ? 24 : 35));
-      camPos.lerp(desiredPos, 1 - Math.exp(-12 * dt));
-      look.lerp(desiredLook, 1 - Math.exp(-12 * dt));
+      // Camera positions are car-local: +Z is forward, +Y is up. Rigid to the car, heading lightly smoothed.
+      const oy = cameraMode === 'cockpit' ? 1.58 : 1.18, oz = cameraMode === 'cockpit' ? 0.05 : 1.35;
+      camPos.set(car.x + cx * oz, 0.05 + oy, car.z + cz * oz);
+      const far = cameraMode === 'cockpit' ? 24 : 35;
+      look.set(car.x + cx * far, 1.05, car.z + cz * far);
     }
     world.camera.position.copy(camPos);
     world.camera.lookAt(look);
