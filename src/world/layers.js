@@ -9,8 +9,8 @@
 export const LAYER = {
   ground: -20, green: -19, water: -18,
   dirt: -17, residential: -16, secondary: -15, primary: -14, // road kinds: bigger roads on top at crossings
-  footpath: -13,                                              // footpaths cross over roads
-  sidewalk: -12,
+  footpath: -13,                                              // explicit mapped footpaths cross over roads
+  sidewalk: -19.5, // sidewalks sit on the base ground; parks, water and every road render over them
 };
 
 /** Mark a mesh as a flat ground decal on the given layer. Works for shared materials too. */
