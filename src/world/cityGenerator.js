@@ -5,7 +5,6 @@ import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
 import { clearBaked } from './optimizer.js';
-import { makeSidewalks } from './sidewalks.js';
 import { makeProps } from './props.js';
 import { asDecal, LAYER } from './layers.js';
 import { initQuality } from './quality.js';
@@ -60,9 +59,6 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   const streets = new THREE.Group(); streets.name = 'streets';
   data.roads.forEach((r) => { const m = makeStreet(r); if (m) streets.add(m); });
   root.add(streets);
-
-  const sidewalks = makeSidewalks(data.roads);
-  if (sidewalks) root.add(sidewalks);
 
   // Yield to the browser periodically so the loader can repaint on big areas.
   const buildings = new THREE.Group(); buildings.name = 'buildings';
