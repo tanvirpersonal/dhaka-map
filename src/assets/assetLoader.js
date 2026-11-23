@@ -80,9 +80,52 @@ export async function createBuilding(assetId, fit) {
 }
 
 /** Textured material for a street kind or a specific street asset id. Cached. */
+/** Load a GLB road segment and repeat it along the OSM road centreline. */
+export async function createStreetModel(road, entry) {
+  const source = await loadGlb(entry);
+  const sourceBox = new THREE.Box3().setFromObject(source);
+  const sourceSize = sourceBox.getSize(new THREE.Vector3());
+  const sourceCenter = sourceBox.getCenter(new THREE.Vector3());
+  const longAxis = sourceSize.x >= sourceSize.z ? 'x' : 'z';
+  const longSize = Math.max(0.001, longAxis === 'x' ? sourceSize.x : sourceSize.z);
+  const shortSize = Math.max(0.001, longAxis === 'x' ? sourceSize.z : sourceSize.x);
+  const group = new THREE.Group();
+  group.name = `street_glb_${road.id}`;
+  group.userData.streetAsset = entry.id;
+
+  for (let i = 1; i < road.points.length; i++) {
+    const a = road.points[i - 1], b = road.points[i];
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const length = Math.hypot(dx, dz);
+    if (length < 0.25) continue;
+    const model = source.clone(true);
+    model.position.set(-sourceCenter.x, -sourceBox.min.y, -sourceCenter.z);
+    const segment = new THREE.Group();
+    segment.add(model);
+    if (longAxis === 'x') {
+      segment.scale.set(length / longSize, 1, road.width / shortSize);
+      segment.rotation.y = -Math.atan2(dz, dx);
+    } else {
+      segment.scale.set(road.width / shortSize, 1, length / longSize);
+      segment.rotation.y = Math.atan2(dx, dz);
+    }
+    segment.position.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2);
+    segment.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = false;
+      o.receiveShadow = true;
+      o.renderOrder = -14;
+      [].concat(o.material || []).forEach((mat) => { if (mat) mat.depthWrite = false; });
+    });
+    group.add(segment);
+  }
+  return group;
+}
+
+/** Textured material for a street kind or a specific street asset id. Cached. */
 export async function getStreetMaterial(idOrKind) {
   const m = await loadManifest();
-  const entry = m.streets.find((s) => s.id === idOrKind) || m.streets.findLast((s) => s.kinds.includes(idOrKind));
+  const entry = m.streets.find((s) => s.id === idOrKind && s.enabled !== false) || m.streets.findLast((s) => s.enabled !== false && s.type !== 'glb' && s.kinds.includes(idOrKind));
   if (!entry) return null;
   if (!streetMatCache.has(entry.id)) {
     let tex;
@@ -107,5 +150,5 @@ export async function getStreetMaterial(idOrKind) {
 export async function getStreetEntry(kind) {
   const m = await loadManifest();
   // findLast: assets you add later override the built-in ones for the same kind.
-  return m.streets.findLast((s) => s.kinds.includes(kind)) || null;
+  return m.streets.findLast((s) => s.enabled !== false && s.kinds.includes(kind)) || null;
 }
