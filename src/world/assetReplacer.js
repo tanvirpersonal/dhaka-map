@@ -8,7 +8,7 @@ import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
 import { ribbonGeometry } from './streetFactory.js';
 import {
   listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel,
-} from '../assets/assetLoader.js';
+} from '../assets/assetLoader.js?v=full-glb-road-geometry-1';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
 import { getStreetIndex, faceStreet } from './streetIndex.js';
@@ -64,7 +64,7 @@ async function applyStreetTextures(roads) {
       model.renderOrder = mesh.renderOrder; // keep the road's place in the ground layer order
       model.userData.road = road;
       model.userData.placeholder = false;
-      mesh.geometry.dispose();
+      if (mesh.geometry) mesh.geometry.dispose();
       streets.remove(mesh);
       streets.add(model);
       continue;
