@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { initScene, clearCity, world, frameCity } from './scene.js';
 import { makeBuildingBox } from './buildingFactory.js';
 import { makeStreet } from './streetFactory.js';
-import { createStreetModel, getStreetEntry } from '../assets/assetLoader.js';
+import { createStreetModel, getStreetEntry } from '../assets/assetLoader.js?v=full-glb-road-geometry-1';
 import { clearBaked } from './optimizer.js';
 // Versioned URL bypasses stale browser/CDN module caches after the tree-transform fix.
 import { makeProps } from './props.js?v=tree-matrix-fix-2';
