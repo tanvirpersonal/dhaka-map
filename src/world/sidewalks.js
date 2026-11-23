@@ -28,6 +28,46 @@ function polylineLength(pts) {
   return l;
 }
 
+// Distance from a point to a finite road segment (XZ plane).
+function pointSegmentDistance(point, a, b) {
+  const dx = b[0] - a[0], dz = b[1] - a[1];
+  const len2 = dx * dx + dz * dz;
+  if (len2 < 1e-8) return Math.hypot(point[0] - a[0], point[1] - a[1]);
+  const t = Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dz) / len2));
+  return Math.hypot(point[0] - (a[0] + t * dx), point[1] - (a[1] + t * dz));
+}
+
+// A sidewalk facing another carriageway becomes a fake green median when both
+// roads generate overlapping footpaths. Detect that side and omit the strip.
+function isSideBlocked(road, roads, side) {
+  const offset = road.width / 2 + WALK_WIDTH / 2 + 0.05;
+  const samples = road.points.map(([x, z], i) => {
+    const prev = road.points[Math.max(0, i - 1)];
+    const next = road.points[Math.min(road.points.length - 1, i + 1)];
+    let dx = next[0] - prev[0], dz = next[1] - prev[1];
+    const len = Math.hypot(dx, dz) || 1;
+    dx /= len; dz /= len;
+    return [x - dz * offset * side, z + dx * offset * side];
+  });
+
+  let blocked = 0;
+  for (const p of samples) {
+    const nearRoad = roads.some((other) => {
+      if (other === road || !other.drivable || other.bridge || other.tunnel || other.points.length < 2) return false;
+      const clearance = (other.width || 5) / 2 + WALK_WIDTH * 0.55 + 0.2;
+      for (let i = 1; i < other.points.length; i++) {
+        if (pointSegmentDistance(p, other.points[i - 1], other.points[i]) < clearance) return true;
+      }
+      return false;
+    });
+    if (nearRoad) blocked++;
+  }
+
+  // Require a sustained parallel/adjacent road before suppressing this whole side;
+  // a crossing street at one node must not erase an otherwise valid sidewalk.
+  return samples.length > 1 && blocked / samples.length >= 0.45;
+}
+
 const material = new THREE.MeshStandardMaterial({ color: 0xa8a297, roughness: 0.95, side: THREE.DoubleSide });
 material.userData.shared = true;
 export const sidewalkMaterial = material;
@@ -40,6 +80,9 @@ export function makeSidewalks(roads) {
     if (r.points.length < 2 || polylineLength(r.points) < 8) continue;
     const off = r.width / 2 + WALK_WIDTH / 2 + 0.05;
     for (const side of [1, -1]) {
+      // Do not build the inward-facing footpath between parallel carriageways:
+      // it overlaps with its neighbour and reads as a wide green median in the scene.
+      if (isSideBlocked(r, roads, side)) continue;
       const g = ribbonGeometry(offsetPolyline(r.points, side * off), WALK_WIDTH, 3);
       g.translate(0, WALK_Y, 0);
       geos.push(g);
