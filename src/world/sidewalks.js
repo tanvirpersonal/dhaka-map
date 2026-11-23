@@ -183,7 +183,6 @@ export function makeSidewalks(roads) {
   for (const r of roads) {
     if (!r.drivable || r.bridge || r.tunnel || SKIP_HIGHWAYS.has(r.highway)) continue;
     if (r.points.length < 2 || polylineLength(r.points) < 8) continue;
-    const off = r.width / 2 + WALK_WIDTH / 2 + 0.05;
     for (const side of [1, -1]) {
       // Clip the strip against every nearby road footprint and multi-arm junction.
       // Only the safe portions are emitted, so the footpath texture never covers asphalt.
