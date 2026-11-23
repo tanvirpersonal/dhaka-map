@@ -47,14 +47,14 @@ function collectJunctions(roads) {
       if (id == null) continue;
       let list = nodes.get(String(id));
       if (!list) nodes.set(String(id), (list = []));
-      let occurrence = list.find((v) => v.road.id === road.id);
-      if (!occurrence) list.push((occurrence = { road, index: i }));
+      // Keep repeated occurrences too (e.g. a closed roundabout way has the same node at both ends).
+      list.push({ road, index: i });
     }
   }
 
   const junctions = [];
   for (const [nodeId, occurrences] of nodes) {
-    if (occurrences.length < 2) continue;
+    if (new Set(occurrences.map((v) => v.road.id)).size < 2) continue;
     const first = occurrences[0];
     const center = first.road.points[first.index];
     const arms = [];
