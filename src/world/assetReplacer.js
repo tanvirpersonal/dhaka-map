@@ -88,10 +88,6 @@ async function applyStreetTextures(roads) {
     if (junctionCount) streets.add(junctions);
   }
 
-  // Sidewalks use the footpath texture (UVs were built for a 3 m tile).
-  const walks = getGroup('sidewalks');
-  const walkMat = walks && await getStreetMaterial('footpath');
-  if (walkMat) walks.children.forEach((m) => { m.material = walkMat; });
   return junctionCount;
 }
 
