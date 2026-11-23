@@ -22,7 +22,7 @@ export async function listBuildingAssets() {
 }
 
 export async function listStreetAssets() {
-  return (await loadManifest()).streets;
+  return (await loadManifest()).streets.filter((s) => s.enabled !== false);
 }
 
 export async function getBuildingAsset(id) {
