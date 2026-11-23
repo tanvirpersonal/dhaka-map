@@ -21,7 +21,7 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
   const assets = await listBuildingAssets();
 
   onProgress(0, 'streets');
-  await applyStreetTextures(data.roads);
+  const junctionCount = await applyStreetTextures(data.roads);
 
   const group = getGroup('buildings');
   if (!group) throw new Error('No generated city to build.');
@@ -41,11 +41,12 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
     if (i % 40 === 39) { onProgress((i + 1) / targets.length, 'buildings'); await tick(); }
   }
   onProgress(1, 'buildings');
+  return { junctionCount };
 }
 
 async function applyStreetTextures(roads) {
   const streets = getGroup('streets');
-  if (!streets) return;
+  if (!streets) return 0;
 
   // Remove the previous generated surface when Build City is run again.
   const oldJunctions = streets.getObjectByName('road_intersections');
@@ -78,17 +79,20 @@ async function applyStreetTextures(roads) {
 
   // Build every junction from shared OSM node IDs, using the exact asphalt material
   // extracted from the road GLB. No separate/fabricated intersection texture is used.
+  let junctionCount = 0;
   const roadEntry = await getStreetEntry('primary');
   if (roadEntry?.type === 'glb') {
     const junctionMaterial = await getRoadIntersectionMaterial(roadEntry);
     const junctions = makeRoadIntersections(roads, junctionMaterial);
-    if (junctions.children.length) streets.add(junctions);
+    junctionCount = junctions.children.length;
+    if (junctionCount) streets.add(junctions);
   }
 
   // Sidewalks use the footpath texture (UVs were built for a 3 m tile).
   const walks = getGroup('sidewalks');
   const walkMat = walks && await getStreetMaterial('footpath');
   if (walkMat) walks.children.forEach((m) => { m.material = walkMat; });
+  return junctionCount;
 }
 
 /** Current scene object for a building (box or asset instance). */
