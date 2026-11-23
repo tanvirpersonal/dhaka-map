@@ -178,6 +178,11 @@ Checks after merge: 14/14 offline downloader tests, download e2e 11/11, traffic 
 - `src/world/layerManager.js` + `src/ui/layersPanel.js` (toolbar **Layers** button): ground, greens, water, streets, sidewalks, buildings, trees, lamps, traffic
   each a named group, toggle individually (baked chunks carry `userData.layer`). e2e covers it (traffic-e2e 19/19).
 
+## GLB road texture (Nov 23)
+`assets/streets/Untitled.glb` (id `road_glb_segment`, kinds primary/secondary/residential) supplies the asphalt texture. Its preview quad is only a texture
+carrier: the texture is tiled square along each road (one tile = road width), so lane lines never stretch. One shared material, one mesh per road, merged by
+Build City. Fixed: the street swap loop skipped roads while replacing. Test: `node tools/e2e/roadtex-e2e.js`.
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.
