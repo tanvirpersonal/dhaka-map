@@ -7,7 +7,7 @@ import { getGroup } from './cityGenerator.js';
 import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
 import { ribbonGeometry } from './streetFactory.js';
 import {
-  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry,
+  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel,
 } from '../assets/assetLoader.js';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
@@ -48,9 +48,20 @@ async function applyStreetTextures() {
   for (const mesh of streets.children) {
     const road = mesh.userData.road;
     if (!road) continue;
-    const material = await getStreetMaterial(road.kind);
     const entry = await getStreetEntry(road.kind);
-    if (!material || !entry) continue;
+    if (!entry) continue;
+    if (entry.type === 'glb') {
+      const model = await createStreetModel(road, entry);
+      model.position.y = mesh.position.y;
+      model.userData.road = road;
+      model.userData.placeholder = false;
+      mesh.geometry.dispose();
+      streets.remove(mesh);
+      streets.add(model);
+      continue;
+    }
+    const material = await getStreetMaterial(road.kind);
+    if (!material) continue;
     mesh.geometry.dispose();
     mesh.geometry = ribbonGeometry(road.points, road.width, entry.tileLength);
     mesh.material = material;
