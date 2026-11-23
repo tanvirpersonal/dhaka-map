@@ -6,9 +6,8 @@ import { world, disposeObject } from './scene.js';
 import { getGroup } from './cityGenerator.js';
 import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
 import { ribbonGeometry } from './streetFactory.js';
-import { makeRoadIntersections } from './intersections.js';
 import {
-  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel, getRoadIntersectionMaterial,
+  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel,
 } from '../assets/assetLoader.js';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
@@ -79,17 +78,9 @@ async function applyStreetTextures(roads) {
     mesh.userData.streetAsset = entry.id;
   }
 
-  // Build every junction from shared OSM node IDs, using the exact asphalt material
-  // extracted from the road GLB. No separate/fabricated intersection texture is used.
-  let junctionCount = 0;
-  const roadEntry = await getStreetEntry('primary');
-  if (roadEntry?.type === 'glb') {
-    const junctionMaterial = await getRoadIntersectionMaterial(roadEntry);
-    const junctions = makeRoadIntersections(roads, junctionMaterial);
-    junctionCount = junctions.children.length;
-    if (junctionCount) streets.add(junctions);
-  }
-
+  // Full GLB road sections overlap slightly at their endpoints; no flat texture
+  // junction overlay is added on top of the authored 3D road geometry.
+  const junctionCount = 0;
   return junctionCount;
 }
 
