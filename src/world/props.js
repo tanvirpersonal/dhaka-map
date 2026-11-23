@@ -5,6 +5,15 @@
 import * as THREE from 'three';
 import { rng, hashString } from '../assets/moduleKit.js';
 
+function offsetPolyline(points, d) {
+  return points.map(([x, z], i) => {
+    const prev = points[Math.max(0, i - 1)], next = points[Math.min(points.length - 1, i + 1)];
+    let dx = next[0] - prev[0], dz = next[1] - prev[1];
+    const len = Math.hypot(dx, dz) || 1; dx /= len; dz /= len;
+    return [x - dz * d, z + dx * d];
+  });
+}
+
 const TREE_SPACING = 14;
 
 /** Points every `spacing` meters along a polyline, with the travel heading at each point. */
@@ -100,21 +109,6 @@ function roadClearanceIndex(roads) {
   };
 }
 
-function lampMeshes(matrices) {
-  const pole = new THREE.CylinderGeometry(0.09, 0.12, 6.5, 6); pole.translate(0, 3.25, 0);
-  const arm = new THREE.BoxGeometry(1.4, 0.1, 0.1); arm.translate(0.6, 6.4, 0);
-  const head = new THREE.BoxGeometry(0.5, 0.15, 0.3); head.translate(1.25, 6.3, 0);
-  const metal = new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.6, metalness: 0.4 });
-  const glow = new THREE.MeshStandardMaterial({ color: 0xfff1c4, emissive: 0xffe9a8, emissiveIntensity: 0 });
-  glow.userData.nightGlow = true; // timeOfDay.js raises emissiveIntensity at night
-  const make = (geo, mat) => {
-    const im = new THREE.InstancedMesh(geo, mat, matrices.length);
-    matrices.forEach((m, i) => im.setMatrixAt(i, m));
-    im.castShadow = false; im.frustumCulled = false; // instances span the whole city
-    return im;
-  };
-  return [make(pole, metal), make(arm, metal), make(head, glow)];
-}
 
 function treeMeshes(items) {
   const trunk = new THREE.CylinderGeometry(0.15, 0.22, 2.4, 6); trunk.translate(0, 1.2, 0);
@@ -144,28 +138,8 @@ export function makeProps(data) {
   const inWater = (x, z) => waterBounds.some(({ w, bb }) => x >= bb.minX - 3 && x <= bb.maxX + 3 && z >= bb.minZ - 3 && z <= bb.maxZ + 3 && pointInPolygon(x, z, w.footprint));
   const r = rng(hashString(`${data.area.south},${data.area.west}`));
 
-  // Street lamps: alternate sides along primary/secondary/residential roads.
-  const lamps = [];
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
-  for (const road of data.roads) {
-    if (!road.drivable || road.bridge || road.tunnel || road.highway === 'service') continue;
-    if (road.kind !== 'primary' && road.kind !== 'secondary' && road.kind !== 'residential') continue;
-    const spacing = road.kind === 'residential' ? LAMP_SPACING * 1.4 : LAMP_SPACING;
-    const off = road.width / 2 + 1.3;
-    let side = 1;
-    for (const p of sampleAlong(road.points, spacing, r() * spacing)) {
-      side = -side;
-      const x = p.x - p.dz * off * side, z = p.z + p.dx * off * side;
-      if (inBuilding(x, z) || !roadClear(x, z, road) || inWater(x, z)) continue;
-      // Arm points toward the road: rotate local +x to face the road center.
-      q.setFromAxisAngle(up, Math.atan2(side * p.dx, side * p.dz));
-      lamps.push(m4.clone().compose(new THREE.Vector3(x, 0.13, z), q.clone(), new THREE.Vector3(1, 1, 1)));
-    }
-  }
-  const lampGroup = new THREE.Group(); lampGroup.name = 'lamps';
   const treeGroup = new THREE.Group(); treeGroup.name = 'trees';
-  group.add(lampGroup, treeGroup);
-  if (lamps.length) lampMeshes(lamps).forEach((m) => lampGroup.add(m));
+  group.add(treeGroup);
 
   // Trees: along residential/secondary roads (outer side of the sidewalk) and inside green areas.
   const trees = [];
@@ -199,6 +173,6 @@ export function makeProps(data) {
   }
   if (trees.length) treeMeshes(trees).forEach((m) => treeGroup.add(m));
 
-  group.userData.counts = { lamps: lamps.length, trees: trees.length };
+  group.userData.counts = { lamps: 0, trees: trees.length };
   return group;
 }
