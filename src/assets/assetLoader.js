@@ -80,44 +80,81 @@ export async function createBuilding(assetId, fit) {
 }
 
 /**
- * Road asset from a .glb: its asphalt texture (edge lines + centre dashes) is repeated along the OSM road.
- * The model's flat preview quad is only used as the texture carrier; the texture is mapped square, so
- * one tile is as long as the road is wide and lane lines never stretch on short or long segments.
- * Returns ONE mesh per road with a shared material, so Build City can merge them into a few draw calls.
+ * Place the COMPLETE GLB road geometry along an OSM way.
+ *
+ * The source model is treated as one straight road section. Its longer horizontal
+ * bounding-box axis is detected automatically (X or Z), then a clone is fitted to
+ * every OSM segment. This preserves the model's meshes, materials, markings and
+ * other authored geometry instead of extracting only its texture.
  */
-const glbRoadMatCache = new Map(); // entry id -> material
-async function glbRoadMaterial(entry) {
-  if (!glbRoadMatCache.has(entry.id)) {
+const roadModelInfoCache = new Map();
+
+async function getRoadModelInfo(entry) {
+  if (!roadModelInfoCache.has(entry.id)) {
     const source = await loadGlb(entry);
-    let src = null;
-    source.traverse((o) => { if (!src && o.isMesh && o.material) src = [].concat(o.material)[0]; });
-    if (!src) throw new Error(`${entry.path}: no mesh material found`);
-    let map = null;
-    if (src.map) {
-      map = src.map.clone();
-      map.wrapS = map.wrapT = THREE.RepeatWrapping;
-      map.offset.set(0, 0); map.repeat.set(1, 1); map.rotation = 0; // drop the preview quad's KHR_texture_transform
-      map.matrix.identity();
-      map.anisotropy = 8;
-      map.needsUpdate = true;
+    source.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(source);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const axis = size.x >= size.z ? 'x' : 'z';
+    const length = axis === 'x' ? size.x : size.z;
+    const width = axis === 'x' ? size.z : size.x;
+    if (!(length > 0.001) || !(width > 0.001)) {
+      throw new Error(`${entry.path}: road GLB must have measurable length and width`);
     }
-    const m = new THREE.MeshStandardMaterial({ map, color: map ? 0xffffff : (src.color || 0x333333), roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
-    if (map) { m.emissiveMap = map; m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = 0.35; } // the asphalt is very dark: lift it so lane lines read in daylight
-    m.depthWrite = false;
-    m.userData.shared = true;
-    if (map) map.userData.shared = true;
-    glbRoadMatCache.set(entry.id, m);
+    roadModelInfoCache.set(entry.id, { source, box, center, axis, length, width });
   }
-  return glbRoadMatCache.get(entry.id);
+  return roadModelInfoCache.get(entry.id);
 }
 
 export async function createStreetModel(road, entry) {
-  const { ribbonGeometry } = await import('../world/streetFactory.js');
-  const mesh = new THREE.Mesh(ribbonGeometry(road.points, road.width, Math.max(road.width, 3)), await glbRoadMaterial(entry));
-  mesh.name = `street_glb_${road.id}`;
-  mesh.receiveShadow = true;
-  mesh.userData.streetAsset = entry.id;
-  return mesh;
+  const info = await getRoadModelInfo(entry);
+  const { source, box, center, axis, length: modelLength, width: modelWidth } = info;
+  const group = new THREE.Group();
+  group.name = `street_glb_${road.id}`;
+  const points = road.points || [];
+  const roadWidth = Math.max(1, road.width || 5);
+  let placed = 0;
+
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1], b = points[i];
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const segmentLength = Math.hypot(dx, dz);
+    if (segmentLength < 0.15) continue;
+
+    const segment = new THREE.Group();
+    const model = source.clone(true);
+    // Move the source model so its footprint is centered and its bottom sits at y=0.
+    model.position.x -= center.x;
+    model.position.y -= box.min.y;
+    model.position.z -= center.z;
+
+    const fit = new THREE.Group();
+    fit.add(model);
+    const longitudinalScale = (segmentLength + Math.min(0.6, roadWidth * 0.08)) / modelLength;
+    const lateralScale = roadWidth / modelWidth;
+    if (axis === 'x') fit.scale.set(longitudinalScale, lateralScale, lateralScale);
+    else fit.scale.set(lateralScale, lateralScale, longitudinalScale);
+
+    // Rotate the model's detected long axis to follow this OSM segment.
+    segment.rotation.y = axis === 'x' ? Math.atan2(-dz, dx) : Math.atan2(dx, dz);
+    segment.position.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2);
+    segment.add(fit);
+    segment.traverse((object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+    group.add(segment);
+    placed++;
+  }
+
+  if (!placed) throw new Error(`${entry.path}: OSM road has no usable segments`);
+  group.userData.streetAsset = entry.id;
+  group.userData.road = road;
+  group.userData.fullGlbGeometry = true;
+  return group;
 }
 
 /** Textured material for a street kind or a specific street asset id. Cached. */
