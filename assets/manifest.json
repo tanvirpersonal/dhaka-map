@@ -197,7 +197,7 @@
       "enabled": true
     },
     {
-      "id": "road_glb_segment",
+      "id": "road_glb_narrow",
       "name": "Narrow Lane (Untitled GLB)",
       "type": "glb",
       "path": "streets/Untitled.glb",
