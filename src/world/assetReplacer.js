@@ -6,8 +6,9 @@ import { world, disposeObject } from './scene.js';
 import { getGroup } from './cityGenerator.js';
 import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
 import { ribbonGeometry } from './streetFactory.js';
+import { makeRoadIntersections } from './intersections.js';
 import {
-  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel,
+  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel, getRoadIntersectionMaterial,
 } from '../assets/assetLoader.js';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
@@ -20,7 +21,7 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
   const assets = await listBuildingAssets();
 
   onProgress(0, 'streets');
-  await applyStreetTextures();
+  await applyStreetTextures(data.roads);
 
   const group = getGroup('buildings');
   if (!group) throw new Error('No generated city to build.');
@@ -42,9 +43,14 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
   onProgress(1, 'buildings');
 }
 
-async function applyStreetTextures() {
+async function applyStreetTextures(roads) {
   const streets = getGroup('streets');
   if (!streets) return;
+
+  // Remove the previous generated surface when Build City is run again.
+  const oldJunctions = streets.getObjectByName('road_intersections');
+  if (oldJunctions) { streets.remove(oldJunctions); disposeObject(oldJunctions); }
+
   for (const mesh of [...streets.children]) { // copy: GLB roads swap objects while we loop
     const road = mesh.userData.road;
     if (!road) continue;
@@ -68,6 +74,15 @@ async function applyStreetTextures() {
     mesh.material = material;
     mesh.userData.placeholder = false;
     mesh.userData.streetAsset = entry.id;
+  }
+
+  // Build every junction from shared OSM node IDs, using the exact asphalt material
+  // extracted from the road GLB. No separate/fabricated intersection texture is used.
+  const roadEntry = await getStreetEntry('primary');
+  if (roadEntry?.type === 'glb') {
+    const junctionMaterial = await getRoadIntersectionMaterial(roadEntry);
+    const junctions = makeRoadIntersections(roads, junctionMaterial);
+    if (junctions.children.length) streets.add(junctions);
   }
 
   // Sidewalks use the footpath texture (UVs were built for a 3 m tile).
