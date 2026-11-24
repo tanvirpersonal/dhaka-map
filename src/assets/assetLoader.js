@@ -125,7 +125,7 @@ export async function createStreetModel(road, entry) {
 /** Textured material for a street kind or a specific street asset id. Cached. */
 export async function getStreetMaterial(idOrKind) {
   const m = await loadManifest();
-  const entry = m.streets.find((s) => s.id === idOrKind && s.enabled !== false) || m.streets.findLast((s) => s.enabled !== false && s.type !== 'glb' && s.kinds.includes(idOrKind));
+  const entry = m.streets.find((s) => s.id === idOrKind && s.enabled !== false) || m.streets.findLast((s) => s.enabled !== false && !String(s.type).startsWith('glb') && s.kinds.includes(idOrKind));
   if (!entry) return null;
   if (!streetMatCache.has(entry.id)) {
     let tex;

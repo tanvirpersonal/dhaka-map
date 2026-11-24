@@ -172,7 +172,7 @@
     },
     {
       "id": "road_glb_segment",
-      "name": "Narrow road texture (GLB)",
+      "name": "Road texture only (GLB, unused now)",
       "type": "glb",
       "path": "streets/Untitled.glb",
       "kinds": [
@@ -180,11 +180,11 @@
         "secondary",
         "residential"
       ],
-      "enabled": true
+      "enabled": false
     },
     {
       "id": "road_chunk",
-      "name": "Road system chunk (road + curb + footpath + lamps)",
+      "name": "Road system (road + curb + footpath + lamps) - latest GLB",
       "type": "glb-chunk",
       "path": "streets/road4-edited.glb",
       "kinds": [
@@ -192,7 +192,6 @@
         "secondary",
         "residential"
       ],
-      "minWidth": 7,
       "replaces": [
         "sidewalks",
         "lamps"

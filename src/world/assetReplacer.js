@@ -54,7 +54,7 @@ async function applyStreetTextures() {
     let entry = await getStreetEntry(road.kind, road.width);
     if (entry?.type === 'glb-chunk') {
       // Wide drivable road: gets the road-system chunk; the flat texture below it fills bends and gaps.
-      if (road.drivable && !road.bridge && !road.tunnel) (chunkJobs.get(entry.id) || chunkJobs.set(entry.id, { entry, roads: [] }).get(entry.id)).roads.push(road);
+      if (road.drivable) (chunkJobs.get(entry.id) || chunkJobs.set(entry.id, { entry, roads: [] }).get(entry.id)).roads.push(road);
       entry = await getStreetEntry(road.kind, road.width, { chunks: false });
     }
     if (!entry) continue;
