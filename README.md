@@ -191,6 +191,9 @@ would lie on another road, merged per material, vertex budget 1.6 M). When it is
 Chunks bend with the road: each chunk is stretched between two shared cross-sections (miter normals at OSM corners), so winding roads have no gaps or overlaps; lamps keep their shape.
 Visual checks: `tools/e2e/bend-shot.js` (winding road), `tools/e2e/junction-shot.js` (crossing). Test: `node tools/e2e/roadtex-e2e.js` (screenshots in tools/e2e/out/roadtex). Sidewalk strips are also cut where they lie on another road (dual carriageways).
 
+Performance (Nov 24 evening): the road system lives in its own group `roadSystem` (not baked again), split into 160 m cells per material so the camera can cull them,
+and curbs/sidewalks/lamps of cells farther than ~450/350 m switch off (`updateRoadSystem` in roadChunks.js; asphalt always stays). Layers panel still toggles streets/sidewalks/lamps.
+
 ## Nothing outside the ground (Nov 24)
 `clipToBounds(data)` in `src/data/layout.js` (runs first in generateCity): OSM returns whole ways, so roads/parks/water used to poke out past the ground slab and float in
 the sky. Roads are cut at the area edge (nodeIds kept aligned), parks/water polygon-clipped, buildings that stick out are dropped. Test: `node tools/test/layout-test.mjs`.
