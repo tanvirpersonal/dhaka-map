@@ -7,11 +7,13 @@ import { getGroup } from './cityGenerator.js';
 import { makeBuildingBox, footprintFrame } from './buildingFactory.js';
 import { ribbonGeometry } from './streetFactory.js';
 import {
-  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel,
+  listBuildingAssets, createBuilding, getStreetMaterial, getStreetEntry, createStreetModel, loadGlbScene,
 } from '../assets/assetLoader.js';
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
 import { getStreetIndex, faceStreet } from './streetIndex.js';
+import { buildRoadChunks } from './roadChunks.js';
+import { carriagewayIndex } from './sidewalks.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -45,10 +47,16 @@ export async function buildCity(data, overrides = {}, onProgress = () => {}) {
 async function applyStreetTextures() {
   const streets = getGroup('streets');
   if (!streets) return;
+  const chunkJobs = new Map();
   for (const mesh of [...streets.children]) { // copy: GLB roads swap objects while we loop
     const road = mesh.userData.road;
     if (!road) continue;
-    const entry = await getStreetEntry(road.kind);
+    let entry = await getStreetEntry(road.kind, road.width);
+    if (entry?.type === 'glb-chunk') {
+      // Wide drivable road: gets the road-system chunk; the flat texture below it fills bends and gaps.
+      if (road.drivable && !road.bridge && !road.tunnel) (chunkJobs.get(entry.id) || chunkJobs.set(entry.id, { entry, roads: [] }).get(entry.id)).roads.push(road);
+      entry = await getStreetEntry(road.kind, road.width, { chunks: false });
+    }
     if (!entry) continue;
     if (entry.type === 'glb') {
       const model = await createStreetModel(road, entry);
@@ -68,6 +76,22 @@ async function applyStreetTextures() {
     mesh.material = material;
     mesh.userData.placeholder = false;
     mesh.userData.streetAsset = entry.id;
+  }
+
+  // Road-system chunks bring their own curbs, footpaths and lamps: switch the coded ones off.
+  for (const { entry, roads } of chunkJobs.values()) {
+    if (!roads.length) continue;
+    try {
+      const meshes = await buildRoadChunks(roads, await loadGlbScene(entry), carriagewayIndex(state.cityData?.roads || roads));
+      meshes.forEach((m) => streets.add(m));
+      for (const name of entry.replaces || []) {
+        const g = name === 'sidewalks' ? getGroup('sidewalks') : world.cityRoot.getObjectByName(name);
+        if (!g) continue;
+        for (const c of [...g.children]) { g.remove(c); disposeObject(c); }
+      }
+    } catch (e) {
+      console.warn(`Road chunk ${entry.id} failed, keeping coded sidewalks and lamps`, e);
+    }
   }
 
   // Sidewalks use the footpath texture (UVs were built for a 3 m tile).

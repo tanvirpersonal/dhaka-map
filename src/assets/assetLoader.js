@@ -37,6 +37,8 @@ async function loadModule(entry) {
   return moduleCache.get(entry.id);
 }
 
+export async function loadGlbScene(entry) { return loadGlb(entry); }
+
 async function loadGlb(entry) {
   if (!glbCache.has(entry.id)) {
     const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
@@ -145,8 +147,10 @@ export async function getStreetMaterial(idOrKind) {
   return streetMatCache.get(entry.id);
 }
 
-export async function getStreetEntry(kind) {
+export async function getStreetEntry(kind, width = Infinity, { chunks = true } = {}) {
   const m = await loadManifest();
   // findLast: assets you add later override the built-in ones for the same kind.
-  return m.streets.findLast((s) => s.enabled !== false && s.kinds.includes(kind)) || null;
+  return m.streets.findLast((s) => s.enabled !== false && s.kinds.includes(kind)
+    && (chunks || s.type !== 'glb-chunk')
+    && width >= (s.minWidth ?? 0) && width <= (s.maxWidth ?? Infinity)) || null;
 }

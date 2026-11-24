@@ -35,7 +35,7 @@ export const sidewalkMaterial = material;
 const CELL = 40;
 
 /** Index of every drivable carriageway: lets a sidewalk ask "am I lying on somebody else's road?" */
-function carriagewayIndex(roads) {
+export function carriagewayIndex(roads) {
   const segs = [], grid = new Map();
   for (const r of roads) {
     if (!r.drivable || r.points.length < 2) continue;
