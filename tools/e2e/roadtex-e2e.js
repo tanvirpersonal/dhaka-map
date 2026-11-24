@@ -30,6 +30,12 @@ const results = []; const ok = (n, p, i = '') => { results.push(p); console.log(
     out.walks = world.cityRoot.getObjectByName('sidewalks').children.length;
     out.lamps = getLayer('lamps') ? getLayer('lamps').children.length : -1;
     out.trees = getLayer('trees') ? getLayer('trees').children.length : -1;
+    const st = (await import('/src/core/state.js')).state.cityData.roads.filter((q) => q.drivable);
+    out.drivable = st.length;
+    // asphalt vertex bounds cover each road's first point (within 12 m)
+    const asph = world.cityRoot.getObjectByName('streets').children.find((m) => m.userData.roadChunk && /Asphalt/i.test(m.name));
+    const pa = asph.geometry.attributes.position, near = (x, z) => { for (let i = 0; i < pa.count; i++) if (Math.hypot(pa.getX(i) - x, pa.getZ(i) - z) < 12) return true; return false; };
+    out.roadsWithChunk = st.filter((q) => near(q.points[0][0], q.points[0][1])).length;
     setBaked(true);
     out.baked = world.cityRoot.getObjectByName('baked').children.length;
     // aerial shot over the first primary road
@@ -39,15 +45,13 @@ const results = []; const ok = (n, p, i = '') => { results.push(p); console.log(
     return out;
   });
   console.log(JSON.stringify(ch));
+  ok('every drivable road got the chunk: its asphalt covers all of them', ch.roadsWithChunk === ch.drivable, `${ch.roadsWithChunk}/${ch.drivable}`);
   ok('road chunk meshes were created (asphalt, curb, sidewalk, lamp parts)', ch.editable.length >= 4, ch.editable.map((e) => e.join(':')).join(' '));
   ok('coded sidewalks switched off', ch.walks === 0);
   ok('coded lamps switched off, trees kept', ch.lamps === 0 && ch.trees > 0, `lamps ${ch.lamps} trees ${ch.trees}`);
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(__dirname, 'out', 'roadtex', 'aerial.png') });
-  for (const k of ['primary', 'secondary', 'residential']) if (r.by[k]) ok(`${k} roads use the GLB texture`, r.by[k].glb === r.by[k].n, `${r.by[k].glb}/${r.by[k].n}`);
-  ok('texture loaded from the GLB', !!r.mapSize && r.mapSize[0] >= 256, JSON.stringify(r.mapSize));
-  ok('preview-quad texture transform dropped', r.rep && r.rep[0] === 1 && r.rep[1] === 1);
-  ok('road keeps a ground-layer render order', r.order < 0, String(r.order));
+  ok('old Untitled texture is no longer used for roads', Object.values(r.by).every((v) => v.glb === 0));
   await page.evaluate(() => { document.getElementById('btn-drive').click(); });
   await page.waitForTimeout(1500);
   await page.screenshot({ path: path.join(__dirname, 'out', 'roadtex', 'drive.png') });
