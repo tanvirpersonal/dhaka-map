@@ -183,6 +183,13 @@ Checks after merge: 14/14 offline downloader tests, download e2e 11/11, traffic 
 carrier: the texture is tiled square along each road (one tile = road width), so lane lines never stretch. One shared material, one mesh per road, merged by
 Build City. Fixed: the street swap loop skipped roads while replacing. Test: `node tools/e2e/roadtex-e2e.js`.
 
+## Road system chunk (Nov 24)
+`assets/streets/road4-edited.glb` (manifest id `road_chunk`, type `glb-chunk`, `minWidth` 7 m) is a 20 m piece of street: asphalt + curbs + sidewalks + lamp posts.
+`src/world/roadChunks.js` lays it along every wide drivable road (asphalt scaled to road width, curbs/sidewalks/lamps slid to the edge, a side is skipped where it
+would lie on another road, merged per material, vertex budget 1.6 M). When it is used, Build City switches OFF the coded sidewalks and lamps (`replaces` in manifest).
+Roads narrower than 7 m (and bridges/tunnels) keep the `Untitled.glb` tiled asphalt texture. The flat texture also sits under chunk roads to fill bends.
+Test: `node tools/e2e/roadtex-e2e.js` (screenshots in tools/e2e/out/roadtex). Sidewalk strips are also cut where they lie on another road (dual carriageways).
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.

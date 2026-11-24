@@ -20,6 +20,30 @@ const results = []; const ok = (n, p, i = '') => { results.push(p); console.log(
     return { by, mapSize: glb && [glb.material.map.image.width, glb.material.map.image.height], rep: glb && glb.material.map.repeat.toArray(), order: glb && glb.renderOrder };
   });
   console.log(JSON.stringify(r));
+  const ch = await page.evaluate(async () => {
+    const { world } = await import('/src/world/scene.js');
+    const { setBaked } = await import('/src/world/optimizer.js');
+    const { getLayer } = await import('/src/world/layerManager.js');
+    const out = { editable: [], baked: 0 };
+    setBaked(false);
+    world.cityRoot.getObjectByName('streets').children.forEach((m) => { if (m.userData.roadChunk) out.editable.push([m.name, m.geometry.attributes.position.count]); });
+    out.walks = world.cityRoot.getObjectByName('sidewalks').children.length;
+    out.lamps = getLayer('lamps') ? getLayer('lamps').children.length : -1;
+    out.trees = getLayer('trees') ? getLayer('trees').children.length : -1;
+    setBaked(true);
+    out.baked = world.cityRoot.getObjectByName('baked').children.length;
+    // aerial shot over the first primary road
+    const road = (await import('/src/core/state.js')).state.cityData.roads.find((q) => q.kind === 'primary');
+    const [x, z] = road.points[0];
+    world.camera.position.set(x + 20, 26, z + 30); world.controls.target.set(x + 20, 0, z); world.controls.update();
+    return out;
+  });
+  console.log(JSON.stringify(ch));
+  ok('road chunk meshes were created (asphalt, curb, sidewalk, lamp parts)', ch.editable.length >= 4, ch.editable.map((e) => e.join(':')).join(' '));
+  ok('coded sidewalks switched off', ch.walks === 0);
+  ok('coded lamps switched off, trees kept', ch.lamps === 0 && ch.trees > 0, `lamps ${ch.lamps} trees ${ch.trees}`);
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: path.join(__dirname, 'out', 'roadtex', 'aerial.png') });
   for (const k of ['primary', 'secondary', 'residential']) if (r.by[k]) ok(`${k} roads use the GLB texture`, r.by[k].glb === r.by[k].n, `${r.by[k].glb}/${r.by[k].n}`);
   ok('texture loaded from the GLB', !!r.mapSize && r.mapSize[0] >= 256, JSON.stringify(r.mapSize));
   ok('preview-quad texture transform dropped', r.rep && r.rep[0] === 1 && r.rep[1] === 1);
