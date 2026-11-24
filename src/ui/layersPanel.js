@@ -1,7 +1,7 @@
 // "Layers" button + floating checklist: show/hide each city layer on its own.
 
 import { state, bus } from '../core/state.js';
-import { LAYER_DEFS, getLayer, isLayerVisible, setLayerVisible } from '../world/layerManager.js';
+import { LAYER_DEFS, layerExists, isLayerVisible, setLayerVisible } from '../world/layerManager.js';
 
 export function initLayersPanel() {
   const btn = document.getElementById('btn-layers');
@@ -11,7 +11,7 @@ export function initLayersPanel() {
   const render = () => {
     panel.innerHTML = '<h3>Layers</h3>';
     for (const def of LAYER_DEFS) {
-      const exists = !!getLayer(def.id);
+      const exists = layerExists(def.id);
       const row = document.createElement('label');
       row.className = 'layer-row' + (exists ? '' : ' missing');
       const cb = document.createElement('input');

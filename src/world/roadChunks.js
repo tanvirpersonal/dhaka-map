@@ -12,6 +12,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const ASPHALT_HALF = 5.25;       // half width of the asphalt in the .glb
 const DROP = 0.10;               // sink the chunk so the asphalt sits just above the ground decals
+const CELL = 160;                // metres: size of one road mesh cell
 const MAX_VERTS = 1_600_000;     // memory budget (the sidewalk alone is ~2k vertices per chunk); widest roads get chunks first,
                                  // the rest keep the flat textured ribbon
 
@@ -132,9 +133,14 @@ export async function buildRoadChunks(roads, scene, onOtherRoad) {
   let used = 0, verts = 0;
   const perChunk = parts.reduce((n, p) => n + p.geo.attributes.position.count, 0);
 
-  const add = (p, g) => {
-    if (!buckets.has(p.material)) buckets.set(p.material, []);
-    buckets.get(p.material).push(g);
+  // One mesh per (material, 160 m cell): the camera can skip cells it cannot see, and far away
+  // cells drop their sidewalk/lamp detail (see updateRoadSystem). One giant mesh would be drawn in full every frame.
+  const add = (p, g, ox, oz) => {
+    const cx = Math.floor(ox / CELL), cz = Math.floor(oz / CELL), key = `${cx},${cz}`;
+    let perMat = buckets.get(p.material);
+    if (!perMat) buckets.set(p.material, (perMat = new Map()));
+    if (!perMat.has(key)) perMat.set(key, { kind: p.kind, cx, cz, geos: [] });
+    perMat.get(key).geos.push(g);
   };
 
   for (const road of [...roads].sort((a, b) => b.width - a.width)) {
@@ -171,9 +177,9 @@ export async function buildRoadChunks(roads, scene, onOtherRoad) {
           if (p.kind === 'lamp') {
             const zc = -p.side * 5, t = (zc + 10) / 20, xBase = p.side * (half + 1.5);
             const at = [a[0] * (1 - t) + b[0] * t + (na[0] * (1 - t) + nb[0] * t) * xBase, a[1] * (1 - t) + b[1] * t + (na[1] * (1 - t) + nb[1] * t) * xBase];
-            add(p, placeLamp(p, xBase, zc, at, yaw));
+            add(p, placeLamp(p, xBase, zc, at, yaw), ox, oz);
           } else {
-            add(p, bendPart(p, a, b, na, nb, yaw));
+            add(p, bendPart(p, a, b, na, nb, yaw), ox, oz);
           }
         }
       }
@@ -182,18 +188,51 @@ export async function buildRoadChunks(roads, scene, onOtherRoad) {
   }
 
   const meshes = [];
-  for (const [material, geos] of buckets) {
-    const merged = mergeGeometries(geos, false);
-    geos.forEach((g) => g.dispose());
-    if (!merged) continue;
-    const mesh = new THREE.Mesh(merged, material);
-    mesh.name = `road_chunk_${material.name || meshes.length}`;
-    mesh.receiveShadow = true;
-    mesh.castShadow = /metal|led|lamp/i.test(material.name || '');
-    mesh.userData.roadChunk = true;
-    meshes.push(mesh);
+  for (const [material, cells] of buckets) {
+    for (const { kind, cx, cz, geos } of cells.values()) {
+      const merged = mergeGeometries(geos, false);
+      geos.forEach((g) => g.dispose());
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(merged, material);
+      mesh.name = `road_chunk_${material.name || meshes.length}_${cx}_${cz}`;
+      mesh.receiveShadow = true;
+      mesh.castShadow = kind === 'lamp';
+      mesh.userData.roadChunk = true;
+      mesh.userData.layer = kind === 'asphalt' ? 'streets' : kind === 'lamp' ? 'lamps' : 'sidewalks';
+      mesh.userData.cell = [(cx + 0.5) * CELL, (cz + 0.5) * CELL];
+      mesh.userData.lodDist = kind === 'asphalt' ? Infinity : kind === 'lamp' ? 350 : 450; // metres from the camera
+      meshes.push(mesh);
+    }
   }
   for (const f of cache.values()) f.forEach((p) => p.geo.dispose());
   parts.forEach((p) => p.geo.dispose());
   return meshes;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Visibility of the road system: user layers (Layers panel) + distance detail.
+
+/** Layer names ('streets' | 'sidewalks' | 'lamps') the user hid. Filled by layerManager. */
+export const roadSystemHidden = new Set();
+let lodInstalled = false;
+
+/** Show/hide every road-system cell: hidden layers off, far curbs/sidewalks/lamps off. */
+export function updateRoadSystem(camera, root) {
+  const g = root.getObjectByName('roadSystem');
+  if (!g) return;
+  const cx = camera.position.x, cz = camera.position.z;
+  for (const m of g.children) {
+    const u = m.userData;
+    if (roadSystemHidden.has(u.layer)) { m.visible = false; continue; }
+    // a cell is ~170 m across, so add its half-diagonal to the distance limit
+    m.visible = u.lodDist === Infinity || Math.hypot(u.cell[0] - cx, u.cell[1] - cz) < u.lodDist + CELL * 0.75;
+  }
+}
+
+/** Call once; keeps the road system's detail in step with the camera (every 6 frames). */
+export function installRoadSystemLod(world) {
+  if (lodInstalled) return;
+  lodInstalled = true;
+  let n = 0;
+  world.onFrame.add(() => { if (++n % 6 === 0) updateRoadSystem(world.camera, world.cityRoot); });
 }

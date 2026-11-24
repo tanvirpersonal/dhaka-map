@@ -12,7 +12,7 @@ import {
 import { matchBuildingAsset, seedFor } from '../assets/assetMatcher.js';
 import { state } from '../core/state.js';
 import { getStreetIndex, faceStreet } from './streetIndex.js';
-import { buildRoadChunks } from './roadChunks.js';
+import { buildRoadChunks, installRoadSystemLod, updateRoadSystem } from './roadChunks.js';
 import { carriagewayIndex } from './sidewalks.js';
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -83,7 +83,12 @@ async function applyStreetTextures() {
     if (!roads.length) continue;
     try {
       const meshes = await buildRoadChunks(roads, await loadGlbScene(entry), carriagewayIndex(state.cityData?.roads || roads));
-      meshes.forEach((m) => streets.add(m));
+      // Own group (not 'streets'): Build City's merge step would copy these big meshes a second time.
+      let rs = world.cityRoot.getObjectByName('roadSystem');
+      if (!rs) { rs = new THREE.Group(); rs.name = 'roadSystem'; world.cityRoot.add(rs); }
+      meshes.forEach((m) => rs.add(m));
+      installRoadSystemLod(world);
+      updateRoadSystem(world.camera, world.cityRoot);
       for (const name of entry.replaces || []) {
         const g = name === 'sidewalks' ? getGroup('sidewalks') : world.cityRoot.getObjectByName(name);
         if (!g) continue;

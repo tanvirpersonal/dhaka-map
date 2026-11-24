@@ -13,6 +13,7 @@
 import { world } from './scene.js';
 import { bus } from '../core/state.js';
 import { hiddenLayers, applyBakedLayerVisibility } from './optimizer.js';
+import { roadSystemHidden, updateRoadSystem } from './roadChunks.js';
 
 export const LAYER_DEFS = [
   { id: 'ground', label: 'Ground' },
@@ -33,10 +34,19 @@ export function getLayer(id) {
   return world.cityRoot?.getObjectByName(id) || world.scene?.getObjectByName(id) || null;
 }
 
+/** True when the layer has something to show (the road system also provides streets, sidewalks and lamps). */
+export function layerExists(id) {
+  if (getLayer(id)?.children?.length || (getLayer(id) && !['sidewalks', 'lamps'].includes(id))) return true;
+  const rs = world.cityRoot?.getObjectByName('roadSystem');
+  return !!rs && rs.children.some((m) => m.userData.layer === id);
+}
+
 export const isLayerVisible = (id) => !off.has(id);
 
 export function setLayerVisible(id, visible) {
   if (visible) off.delete(id); else off.add(id);
+  if (visible) roadSystemHidden.delete(id); else roadSystemHidden.add(id);
+  updateRoadSystem(world.camera, world.cityRoot);
   if (BAKED.has(id)) {
     if (visible) hiddenLayers.delete(id); else hiddenLayers.add(id);
     applyBakedLayerVisibility();
@@ -49,6 +59,8 @@ export function setLayerVisible(id, visible) {
 
 /** Re-apply the user's choices after a (re)generation, e.g. new objects or a re-bake. */
 export function registerCityLayers() {
+  for (const id of off) roadSystemHidden.add(id);
+  updateRoadSystem(world.camera, world.cityRoot);
   for (const id of off) {
     if (BAKED.has(id)) hiddenLayers.add(id);
     else { const o = getLayer(id); if (o) o.visible = false; }
