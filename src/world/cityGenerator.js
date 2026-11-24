@@ -9,7 +9,7 @@ import { makeSidewalks } from './sidewalks.js';
 import { makeProps } from './props.js';
 import { asDecal, LAYER } from './layers.js';
 import { initQuality } from './quality.js';
-import { clearBuildingsFromRoads } from '../data/layout.js';
+import { clearBuildingsFromRoads, clipToBounds } from '../data/layout.js';
 import { registerCityLayers } from './layerManager.js';
 
 function flatShape(footprint, y, color, name) {
@@ -33,6 +33,7 @@ export async function generateCity(canvas, data, onProgress = () => {}) {
   clearCity();
   const root = world.cityRoot;
   const { bounds } = data;
+  clipToBounds(data);            // nothing outside the ground slab (roads/parks/water cut at the edge)
   clearBuildingsFromRoads(data); // no building on a road or sidewalk (mutates data.buildings, idempotent)
 
   // Ground slab slightly larger than the selected area.

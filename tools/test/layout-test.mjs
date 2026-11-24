@@ -1,5 +1,5 @@
 // Offline test: buildings must never end up on a road corridor after clearBuildingsFromRoads().
-import { clearBuildingsFromRoads, roadClearance } from '../../src/data/layout.js';
+import { clearBuildingsFromRoads, clipToBounds, roadClearance } from '../../src/data/layout.js';
 
 let fails = 0;
 const ok = (c, m, x = '') => { console.log(`${c ? 'PASS' : 'FAIL'}  ${m}${x ? '  — ' + x : ''}`); if (!c) fails++; };
@@ -58,5 +58,36 @@ ok(data.buildings.length > before * 0.5, 'most buildings survive', `${data.build
 const again = clearBuildingsFromRoads(data);
 ok(again.moved + again.shrunk + again.removed === 0, 'second run changes nothing (idempotent)');
 ok(data.buildings.every((b) => b.center.every(Number.isFinite) && b.footprint.every((p) => p.every(Number.isFinite))), 'all coordinates finite');
+
+// --- clipping to the ground slab
+{
+  const B = { minX: -100, maxX: 100, minZ: -100, maxZ: 100, width: 200, depth: 200 };
+  const d = {
+    bounds: B,
+    roads: [
+      { id: 'a', points: [[-300, 0], [300, 0]], nodeIds: [1, 2], width: 8, drivable: true },
+      { id: 'b', points: [[-50, -50], [50, 50]], nodeIds: [3, 4], width: 8, drivable: true },
+      { id: 'c', points: [[200, 200], [300, 300]], nodeIds: [5, 6], width: 8, drivable: true },
+      { id: 'd', points: [[-150, 20], [0, 20], [0, 160]], nodeIds: [7, 8, 9], width: 8, drivable: true },
+    ],
+    greens: [{ id: 'g', footprint: [[-50, -50], [400, -50], [400, 50], [-50, 50]] }, { id: 'g2', footprint: [[500, 500], [600, 500], [600, 600]] }],
+    water: [], buildings: [
+      { id: 'in', footprint: [[0, 0], [10, 0], [10, 10], [0, 10]], center: [5, 5] },
+      { id: 'edge', footprint: [[90, 0], [120, 0], [120, 10], [90, 10]], center: [105, 5] },
+    ],
+  };
+  const st = clipToBounds(d);
+  const inside = (p) => p[0] >= -100.01 && p[0] <= 100.01 && p[1] >= -100.01 && p[1] <= 100.01;
+  ok(d.roads.every((r) => r.points.every(inside)), 'every road point is inside the area', JSON.stringify(st));
+  ok(d.roads.find((r) => r.id === 'a')?.points.length === 2 && d.roads.find((r) => r.id === 'a').points[0][0] === -100, 'long road is cut at the edge');
+  ok(!d.roads.some((r) => r.id === 'c'), 'road fully outside is dropped');
+  ok(d.roads.find((r) => r.id === 'b')?.points[0] === undefined || d.roads.find((r) => r.id === 'b').points.length === 2, 'road inside is untouched');
+  const dd = d.roads.find((r) => r.id === 'd');
+  ok(dd && dd.nodeIds.length === dd.points.length && dd.points.at(-1)[1] === 100, 'cut road keeps nodeIds aligned with points', JSON.stringify(dd?.nodeIds));
+  ok(d.greens.length === 1 && d.greens[0].footprint.every(inside), 'park is clipped, fully-outside park dropped');
+  ok(d.buildings.length === 1 && d.buildings[0].id === 'in', 'building sticking out is dropped');
+  const st2 = clipToBounds(d);
+  ok(st2.roadsCut === 0 && st2.areasCut === 0 && st2.buildingsDropped === 0, 'clipping twice changes nothing');
+}
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');
 process.exit(fails ? 1 : 0);
