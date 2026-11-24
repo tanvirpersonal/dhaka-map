@@ -188,7 +188,8 @@ Build City. Fixed: the street swap loop skipped roads while replacing. Test: `no
 `src/world/roadChunks.js` lays it along every wide drivable road (asphalt scaled to road width, curbs/sidewalks/lamps slid to the edge, a side is skipped where it
 would lie on another road, merged per material, vertex budget 1.6 M). When it is used, Build City switches OFF the coded sidewalks and lamps (`replaces` in manifest).
 Roads narrower than 7 m (and bridges/tunnels) keep the `Untitled.glb` tiled asphalt texture. The flat texture also sits under chunk roads to fill bends.
-Test: `node tools/e2e/roadtex-e2e.js` (screenshots in tools/e2e/out/roadtex). Sidewalk strips are also cut where they lie on another road (dual carriageways).
+Chunks bend with the road: each chunk is stretched between two shared cross-sections (miter normals at OSM corners), so winding roads have no gaps or overlaps; lamps keep their shape.
+Visual checks: `tools/e2e/bend-shot.js` (winding road), `tools/e2e/junction-shot.js` (crossing). Test: `node tools/e2e/roadtex-e2e.js` (screenshots in tools/e2e/out/roadtex). Sidewalk strips are also cut where they lie on another road (dual carriageways).
 
 ## Next ideas (unchecked = not started)
 
