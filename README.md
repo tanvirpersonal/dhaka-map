@@ -191,6 +191,10 @@ Roads narrower than 7 m (and bridges/tunnels) keep the `Untitled.glb` tiled asph
 Chunks bend with the road: each chunk is stretched between two shared cross-sections (miter normals at OSM corners), so winding roads have no gaps or overlaps; lamps keep their shape.
 Visual checks: `tools/e2e/bend-shot.js` (winding road), `tools/e2e/junction-shot.js` (crossing). Test: `node tools/e2e/roadtex-e2e.js` (screenshots in tools/e2e/out/roadtex). Sidewalk strips are also cut where they lie on another road (dual carriageways).
 
+## Nothing outside the ground (Nov 24)
+`clipToBounds(data)` in `src/data/layout.js` (runs first in generateCity): OSM returns whole ways, so roads/parks/water used to poke out past the ground slab and float in
+the sky. Roads are cut at the area edge (nodeIds kept aligned), parks/water polygon-clipped, buildings that stick out are dropped. Test: `node tools/test/layout-test.mjs`.
+
 ## Next ideas (unchecked = not started)
 
 Done and verified in a real browser: Generate / Build / Edit swap / GLB export, buildings facing streets, props, sidewalks, traffic, drive mode.
