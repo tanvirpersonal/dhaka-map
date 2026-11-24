@@ -64,8 +64,63 @@ function fitted(parts, width, cache) {
   return out;
 }
 
+const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+
 /**
- * @param {{road:object}[]} roads wide drivable roads that should get chunks
+ * Bend a chunk part between two cross-sections: the start one (A, normal nA) and the end one (B, nB).
+ * Neighbouring chunks share the very same cross-section, so curves and corners stay watertight
+ * (no gaps, no overlaps). Normals are only turned to the chord direction.
+ */
+function bendPart(p, A, B, nA, nB, yaw) {
+  const src = p.geo, pos = src.attributes.position, nor = src.attributes.normal, n = pos.count;
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), c = Math.cos(yaw), s = Math.sin(yaw);
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), t = clamp01((z + 10) / 20), u = 1 - t;
+    P[i * 3] = A[0] * u + B[0] * t + (nA[0] * u + nB[0] * t) * x;
+    P[i * 3 + 1] = pos.getY(i) - DROP;
+    P[i * 3 + 2] = A[1] * u + B[1] * t + (nA[1] * u + nB[1] * t) * x;
+    const nx = nor.getX(i), nz = nor.getZ(i);
+    N[i * 3] = nx * c + nz * s; N[i * 3 + 1] = nor.getY(i); N[i * 3 + 2] = -nx * s + nz * c;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  if (src.attributes.uv) g.setAttribute('uv', src.attributes.uv);
+  g.setIndex(src.index);
+  return g;
+}
+
+/** Keep a lamp's shape: move it rigidly so its base (xBase, zc in chunk space) lands on `at`, turned to `yaw`. */
+function placeLamp(p, xBase, zc, at, yaw) {
+  const src = p.geo, pos = src.attributes.position, nor = src.attributes.normal, n = pos.count;
+  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), c = Math.cos(yaw), s = Math.sin(yaw);
+  for (let i = 0; i < n; i++) {
+    const vx = pos.getX(i) - xBase, vz = pos.getZ(i) - zc;
+    P[i * 3] = at[0] + vx * c + vz * s;
+    P[i * 3 + 1] = pos.getY(i) - DROP;
+    P[i * 3 + 2] = at[1] - vx * s + vz * c;
+    const nx = nor.getX(i), nz = nor.getZ(i);
+    N[i * 3] = nx * c + nz * s; N[i * 3 + 1] = nor.getY(i); N[i * 3 + 2] = -nx * s + nz * c;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+  if (src.attributes.uv) g.setAttribute('uv', src.attributes.uv);
+  g.setIndex(src.index);
+  return g;
+}
+
+/** Cross-section normal at polyline vertex j (between segment j-1 and j): the corner's miter, so the road keeps its width round a bend. */
+function miterAt2(segN, j) {
+  const prev = segN[j - 1], next = segN[j];
+  if (!prev) return next;
+  if (!next) return prev;
+  const k = Math.min(2.5, 1 / Math.max(0.4, 1 + prev[0] * next[0] + prev[1] * next[1]));
+  return [(prev[0] + next[0]) * k, (prev[1] + next[1]) * k];
+}
+
+/**
+ * @param {object[]} roads wide drivable roads that should get chunks
  * @param {THREE.Object3D} scene the loaded .glb scene
  * @param {(x:number,z:number,own:object)=>boolean} onOtherRoad
  * @returns {THREE.Mesh[]}
@@ -74,28 +129,34 @@ export async function buildRoadChunks(roads, scene, onOtherRoad) {
   const parts = classify(scene);
   if (!parts.some((p) => p.kind === 'asphalt')) throw new Error('road chunk .glb has no "Asphalt" mesh');
   const cache = new Map(), buckets = new Map();
-  const M = new THREE.Matrix4(), R = new THREE.Matrix4(), T = new THREE.Matrix4(), S = new THREE.Matrix4();
   let used = 0, verts = 0;
   const perChunk = parts.reduce((n, p) => n + p.geo.attributes.position.count, 0);
 
-  const add = (p, matrix) => {
-    const g = p.geo.clone(); g.applyMatrix4(matrix);
+  const add = (p, g) => {
     if (!buckets.has(p.material)) buckets.set(p.material, []);
     buckets.get(p.material).push(g);
   };
 
   for (const road of [...roads].sort((a, b) => b.width - a.width)) {
     const half = road.width / 2, fit = fitted(parts, road.width, cache);
-    for (let i = 1; i < road.points.length && verts < MAX_VERTS; i++) {
-      const [ax, az] = road.points[i - 1], [bx, bz] = road.points[i];
-      const len = Math.hypot(bx - ax, bz - az);
-      if (len < 1) continue;
-      const dx = (bx - ax) / len, dz = (bz - az) / len, theta = Math.atan2(dx, dz);
-      const n = Math.max(1, Math.round(len / 20)), step = len / n, sz = step / 20;
-      R.makeRotationY(theta); S.makeScale(1, 1, sz);
-      for (let k = 0; k < n; k++, used++) {
+    // drop duplicate points, then one direction + normal per segment
+    const pts = road.points.filter((q, i, a) => i === 0 || Math.hypot(q[0] - a[i - 1][0], q[1] - a[i - 1][1]) > 0.3);
+    if (pts.length < 2) continue;
+    const segD = [], segN = [];
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i][0] - pts[i - 1][0], dz = pts[i][1] - pts[i - 1][1], l = Math.hypot(dx, dz);
+      segD.push([dx / l, dz / l, l]); segN.push([dz / l, -dx / l]);
+    }
+    for (let i = 0; i < segD.length && verts < MAX_VERTS; i++) {
+      const [dx, dz, len] = segD[i], nSeg = segN[i], A0 = pts[i];
+      const startN = i === 0 ? nSeg : miterAt2(segN, i), endN = i === segD.length - 1 ? nSeg : miterAt2(segN, i + 1);
+      const yaw = Math.atan2(dx, dz);
+      const cnt = Math.max(1, Math.round(len / 20)), step = len / cnt;
+      for (let k = 0; k < cnt; k++, used++) {
         verts += perChunk;
-        const s = (k + 0.5) * step, ox = ax + dx * s, oz = az + dz * s;
+        const a = [A0[0] + dx * step * k, A0[1] + dz * step * k], b = [A0[0] + dx * step * (k + 1), A0[1] + dz * step * (k + 1)];
+        const na = k === 0 ? startN : nSeg, nb = k === cnt - 1 ? endN : nSeg;
+        const ox = (a[0] + b[0]) / 2, oz = (a[1] + b[1]) / 2;
         // which sides are free of other roads?
         const free = {};
         for (const side of [-1, 1]) {
@@ -107,14 +168,13 @@ export async function buildRoadChunks(roads, scene, onOtherRoad) {
         }
         for (const p of fit) {
           if (p.kind !== 'asphalt' && !free[p.side]) continue;
-          if (p.kind === 'lamp') { // keep lamp shape; only move it along the road
-            const zc = -p.side * 5 * 1; // lamps sit at z = +5 (left) / -5 (right)
-            T.makeTranslation(ox, -DROP, oz).multiply(R).multiply(new THREE.Matrix4().makeTranslation(0, 0, zc * sz - zc));
-            M.copy(T);
+          if (p.kind === 'lamp') {
+            const zc = -p.side * 5, t = (zc + 10) / 20, xBase = p.side * (half + 1.5);
+            const at = [a[0] * (1 - t) + b[0] * t + (na[0] * (1 - t) + nb[0] * t) * xBase, a[1] * (1 - t) + b[1] * t + (na[1] * (1 - t) + nb[1] * t) * xBase];
+            add(p, placeLamp(p, xBase, zc, at, yaw));
           } else {
-            M.makeTranslation(ox, -DROP, oz).multiply(R).multiply(S);
+            add(p, bendPart(p, a, b, na, nb, yaw));
           }
-          add(p, M);
         }
       }
       if (used % 40 === 0) await new Promise((r) => setTimeout(r, 0));
